@@ -2,7 +2,7 @@
 Bestellung Models
 Verwaltung von Bestellungen bei Lieferanten
 """
-from sqlalchemy import Column, Integer, String, DateTime, Numeric, Boolean, Text, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Numeric, Boolean, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from enum import Enum as PyEnum
@@ -28,12 +28,8 @@ class Bestellung(Base):
     bestellnummer = Column(String(50), nullable=False, unique=True, index=True)
     lieferant_id = Column(Integer, ForeignKey("lieferanten.id"), nullable=False)
     
-    # Status
-    status = Column(
-        Enum(BestellStatus, name="bestellstatus"),
-        nullable=False,
-        default=BestellStatus.ENTWURF
-    )
+    # Status - als String statt Enum (wegen SQLAlchemy Bug)
+    status = Column(String(20), nullable=False, default="entwurf")
     
     # Daten
     bestelldatum = Column(DateTime(timezone=True))  # Wann bei Lieferant bestellt

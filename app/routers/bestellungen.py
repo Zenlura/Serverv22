@@ -2,18 +2,22 @@
 Bestellungen API Endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
+from fastapi.encoders import jsonable_encoder
+from sqlalchemy.orm import Session
+from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
 from app.database import get_db
-from app.models.bestellung import Bestellung, BestellPosition, BestellStatus
+from app.models.bestellung import Bestellung, BestellPosition
 from app.schemas.bestellung import (
     BestellungCreate,
     BestellungUpdate,
     BestellungResponse,
-    BestellungListItem
+    BestellungListItem,
+    BestellungStatusUpdate,
+    BestellPositionCreate,
+    BestellPositionUpdate
 )
 
 router = APIRouter(prefix="/api/bestellungen", tags=["Bestellungen"])
@@ -21,40 +25,31 @@ router = APIRouter(prefix="/api/bestellungen", tags=["Bestellungen"])
 
 def generate_bestellnummer(db: Session) -> str:
     """Generiert eine eindeutige Bestellnummer"""
-    # Format: BEST-YYYYMMDD-XXX
     heute = datetime.now()
     prefix = f"BEST-{heute.strftime('%Y%m%d')}"
-    
-    # Zähle Bestellungen von heute
     count = db.query(Bestellung).filter(
         Bestellung.bestellnummer.like(f"{prefix}%")
     ).count()
-    
     return f"{prefix}-{count + 1:03d}"
 
 
-@router.post("", response_model=BestellungResponse, status_code=201)
+@router.post("", status_code=201)
 def create_bestellung(
     bestellung: BestellungCreate,
     db: Session = Depends(get_db)
 ):
-    """
-    Neue Bestellung erstellen
-    """
-    # Bestellnummer generieren
+    """Neue Bestellung erstellen"""
     bestellnummer = generate_bestellnummer(db)
     
-    # Bestellung erstellen
     db_bestellung = Bestellung(
         bestellnummer=bestellnummer,
         lieferant_id=bestellung.lieferant_id,
         notizen=bestellung.notizen,
         interne_notizen=bestellung.interne_notizen,
         versandkosten=bestellung.versandkosten or Decimal("0.0"),
-        status=BestellStatus.ENTWURF.value  # ← FIX: .value verwenden!
+        status="entwurf"
     )
     
-    # Positionen hinzufügen
     gesamtpreis = Decimal("0.0")
     for pos in bestellung.positionen:
         pos_gesamtpreis = Decimal(str(pos.menge)) * pos.einzelpreis
@@ -69,23 +64,16 @@ def create_bestellung(
         )
         db_bestellung.positionen.append(db_position)
     
-    # Gesamtpreis berechnen (inkl. Versandkosten)
     db_bestellung.gesamtpreis = gesamtpreis + (bestellung.versandkosten or Decimal("0.0"))
     
     db.add(db_bestellung)
     db.commit()
     db.refresh(db_bestellung)
     
-    # Mit Lieferant und Positionen laden
-    db_bestellung = db.query(Bestellung).options(
-        joinedload(Bestellung.lieferant),
-        joinedload(Bestellung.positionen).joinedload(BestellPosition.artikel)
-    ).filter(Bestellung.id == db_bestellung.id).first()
-    
-    return db_bestellung
+    return jsonable_encoder(db_bestellung)
 
 
-@router.get("", response_model=dict)
+@router.get("")
 def get_bestellungen(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
@@ -93,75 +81,51 @@ def get_bestellungen(
     lieferant_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
-    """
-    Liste aller Bestellungen mit Pagination und Filterung
-    """
-    query = db.query(Bestellung).options(
-        joinedload(Bestellung.lieferant),
-        joinedload(Bestellung.positionen)
-    )
+    """Liste aller Bestellungen"""
+    query = db.query(Bestellung)
     
-    # Filter nach Status
     if status:
         query = query.filter(Bestellung.status == status)
-    
-    # Filter nach Lieferant
     if lieferant_id:
         query = query.filter(Bestellung.lieferant_id == lieferant_id)
     
-    # Sortierung (neueste zuerst)
     query = query.order_by(Bestellung.created_at.desc())
-    
-    # Total count
     total = query.count()
-    
-    # Pagination
     bestellungen = query.offset(skip).limit(limit).all()
     
     return {
-        "items": bestellungen,
+        "items": jsonable_encoder(bestellungen),
         "total": total,
         "skip": skip,
         "limit": limit
     }
 
 
-@router.get("/{bestellung_id}", response_model=BestellungResponse)
+@router.get("/{bestellung_id}")
 def get_bestellung(
     bestellung_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Einzelne Bestellung abrufen
-    """
-    bestellung = db.query(Bestellung).options(
-        joinedload(Bestellung.lieferant),
-        joinedload(Bestellung.positionen).joinedload(BestellPosition.artikel)
-    ).filter(Bestellung.id == bestellung_id).first()
-    
+    """Einzelne Bestellung"""
+    bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
     if not bestellung:
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
-    
-    return bestellung
+    return jsonable_encoder(bestellung)
 
 
-@router.put("/{bestellung_id}", response_model=BestellungResponse)
+@router.put("/{bestellung_id}")
 def update_bestellung(
     bestellung_id: int,
     update: BestellungUpdate,
     db: Session = Depends(get_db)
 ):
-    """
-    Bestellung aktualisieren
-    """
+    """Bestellung aktualisieren"""
     bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
-    
     if not bestellung:
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
     
-    # Update Felder
     if update.status:
-        bestellung.status = update.status  # Hier ist es schon ein String vom Frontend
+        bestellung.status = update.status
     if update.bestelldatum is not None:
         bestellung.bestelldatum = update.bestelldatum
     if update.lieferdatum_erwartet is not None:
@@ -174,61 +138,207 @@ def update_bestellung(
         bestellung.interne_notizen = update.interne_notizen
     if update.versandkosten is not None:
         bestellung.versandkosten = update.versandkosten
-        # Gesamtpreis neu berechnen
-        positionen_summe = sum(
-            Decimal(str(pos.gesamtpreis)) for pos in bestellung.positionen
-        )
+        positionen_summe = sum(Decimal(str(pos.gesamtpreis)) for pos in bestellung.positionen)
         bestellung.gesamtpreis = positionen_summe + update.versandkosten
     
     db.commit()
     db.refresh(bestellung)
-    
-    # Mit Relationships laden
-    bestellung = db.query(Bestellung).options(
-        joinedload(Bestellung.lieferant),
-        joinedload(Bestellung.positionen).joinedload(BestellPosition.artikel)
-    ).filter(Bestellung.id == bestellung_id).first()
-    
-    return bestellung
+    return jsonable_encoder(bestellung)
 
 
-@router.post("/{bestellung_id}/wareneingang", response_model=BestellungResponse)
+@router.patch("/{bestellung_id}/status")
+def update_bestellung_status(
+    bestellung_id: int,
+    status_update: BestellungStatusUpdate,
+    db: Session = Depends(get_db)
+):
+    """Status der Bestellung ändern"""
+    bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
+    if not bestellung:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
+    
+    # Validiere Status-Übergang
+    gueltige_status = ["entwurf", "bestellt", "teilgeliefert", "geliefert", "storniert"]
+    if status_update.status not in gueltige_status:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Ungültiger Status. Erlaubt: {', '.join(gueltige_status)}"
+        )
+    
+    # Setze automatisch Bestelldatum wenn von entwurf -> bestellt
+    if bestellung.status == "entwurf" and status_update.status == "bestellt":
+        bestellung.bestelldatum = datetime.now()
+    
+    # Setze automatisch Lieferdatum wenn -> geliefert
+    if status_update.status == "geliefert" and not bestellung.lieferdatum_tatsaechlich:
+        bestellung.lieferdatum_tatsaechlich = datetime.now()
+    
+    bestellung.status = status_update.status
+    
+    db.commit()
+    db.refresh(bestellung)
+    return jsonable_encoder(bestellung)
+
+
+@router.post("/{bestellung_id}/positionen")
+def add_position(
+    bestellung_id: int,
+    position: BestellPositionCreate,
+    db: Session = Depends(get_db)
+):
+    """Position zu bestehender Bestellung hinzufügen"""
+    bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
+    if not bestellung:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
+    
+    # Nur bei Entwürfen erlauben
+    if bestellung.status != "entwurf":
+        raise HTTPException(
+            status_code=400, 
+            detail="Positionen können nur bei Entwürfen hinzugefügt werden"
+        )
+    
+    # Neue Position erstellen
+    pos_gesamtpreis = Decimal(str(position.menge)) * position.einzelpreis
+    db_position = BestellPosition(
+        bestellung_id=bestellung_id,
+        artikel_id=position.artikel_id,
+        menge=position.menge,
+        einzelpreis=position.einzelpreis,
+        gesamtpreis=pos_gesamtpreis,
+        notizen=position.notizen
+    )
+    
+    db.add(db_position)
+    
+    # Gesamtpreis neu berechnen
+    positionen_summe = sum(Decimal(str(pos.gesamtpreis)) for pos in bestellung.positionen)
+    positionen_summe += pos_gesamtpreis
+    bestellung.gesamtpreis = positionen_summe + bestellung.versandkosten
+    
+    db.commit()
+    db.refresh(bestellung)
+    return jsonable_encoder(bestellung)
+
+
+@router.put("/{bestellung_id}/positionen/{position_id}")
+def update_position(
+    bestellung_id: int,
+    position_id: int,
+    update: BestellPositionUpdate,
+    db: Session = Depends(get_db)
+):
+    """Einzelne Position aktualisieren"""
+    bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
+    if not bestellung:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
+    
+    position = db.query(BestellPosition).filter(
+        BestellPosition.id == position_id,
+        BestellPosition.bestellung_id == bestellung_id
+    ).first()
+    if not position:
+        raise HTTPException(status_code=404, detail="Position nicht gefunden")
+    
+    # Nur bei Entwürfen Menge/Preis ändern erlauben
+    if bestellung.status != "entwurf" and (update.menge or update.einzelpreis):
+        raise HTTPException(
+            status_code=400,
+            detail="Menge und Preis können nur bei Entwürfen geändert werden"
+        )
+    
+    # Update Felder
+    if update.menge is not None:
+        position.menge = update.menge
+    if update.einzelpreis is not None:
+        position.einzelpreis = update.einzelpreis
+    if update.notizen is not None:
+        position.notizen = update.notizen
+    if update.menge_geliefert is not None:
+        position.menge_geliefert = update.menge_geliefert
+        position.geliefert = (position.menge_geliefert >= position.menge)
+    
+    # Gesamtpreis Position neu berechnen
+    position.gesamtpreis = Decimal(str(position.menge)) * position.einzelpreis
+    
+    # Gesamtpreis Bestellung neu berechnen
+    positionen_summe = sum(Decimal(str(pos.gesamtpreis)) for pos in bestellung.positionen)
+    bestellung.gesamtpreis = positionen_summe + bestellung.versandkosten
+    
+    db.commit()
+    db.refresh(position)
+    return jsonable_encoder(position)
+
+
+@router.delete("/{bestellung_id}/positionen/{position_id}", status_code=204)
+def delete_position(
+    bestellung_id: int,
+    position_id: int,
+    db: Session = Depends(get_db)
+):
+    """Position löschen"""
+    bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
+    if not bestellung:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
+    
+    # Nur bei Entwürfen erlauben
+    if bestellung.status != "entwurf":
+        raise HTTPException(
+            status_code=400,
+            detail="Positionen können nur bei Entwürfen gelöscht werden"
+        )
+    
+    position = db.query(BestellPosition).filter(
+        BestellPosition.id == position_id,
+        BestellPosition.bestellung_id == bestellung_id
+    ).first()
+    if not position:
+        raise HTTPException(status_code=404, detail="Position nicht gefunden")
+    
+    # Mindestens 1 Position muss bleiben
+    if len(bestellung.positionen) <= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Mindestens eine Position muss verbleiben"
+        )
+    
+    db.delete(position)
+    
+    # Gesamtpreis neu berechnen
+    positionen_summe = sum(
+        Decimal(str(pos.gesamtpreis)) 
+        for pos in bestellung.positionen 
+        if pos.id != position_id
+    )
+    bestellung.gesamtpreis = positionen_summe + bestellung.versandkosten
+    
+    db.commit()
+    return None
+
+
+@router.post("/{bestellung_id}/wareneingang")
 def wareneingang_buchen(
     bestellung_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Wareneingang für komplette Bestellung buchen
-    - Setzt alle Positionen auf "geliefert"
-    - Erhöht Bestände
-    - Setzt Status auf "geliefert"
-    """
-    bestellung = db.query(Bestellung).options(
-        joinedload(Bestellung.positionen).joinedload(BestellPosition.artikel)
-    ).filter(Bestellung.id == bestellung_id).first()
-    
+    """Wareneingang buchen"""
+    bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
     if not bestellung:
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
     
-    # Für jede Position: Bestand erhöhen
     for position in bestellung.positionen:
         if not position.geliefert:
-            # Bestand erhöhen
             artikel = position.artikel
             artikel.bestand_lager += position.menge
-            
-            # Position als geliefert markieren
             position.menge_geliefert = position.menge
             position.geliefert = True
     
-    # Bestellung-Status aktualisieren
-    bestellung.status = BestellStatus.GELIEFERT.value  # ← FIX: .value verwenden!
+    bestellung.status = "geliefert"
     bestellung.lieferdatum_tatsaechlich = datetime.now()
     
     db.commit()
     db.refresh(bestellung)
-    
-    return bestellung
+    return jsonable_encoder(bestellung)
 
 
 @router.delete("/{bestellung_id}", status_code=204)
@@ -236,21 +346,13 @@ def delete_bestellung(
     bestellung_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Bestellung löschen (nur Entwürfe!)
-    """
+    """Bestellung löschen (nur Entwürfe)"""
     bestellung = db.query(Bestellung).filter(Bestellung.id == bestellung_id).first()
-    
     if not bestellung:
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
-    
-    if bestellung.status != BestellStatus.ENTWURF.value:  # ← FIX: .value verwenden!
-        raise HTTPException(
-            status_code=400,
-            detail="Nur Entwürfe können gelöscht werden"
-        )
+    if bestellung.status != "entwurf":
+        raise HTTPException(status_code=400, detail="Nur Entwürfe können gelöscht werden")
     
     db.delete(bestellung)
     db.commit()
-    
     return None
