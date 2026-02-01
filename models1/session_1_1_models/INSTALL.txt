@@ -1,0 +1,91 @@
+═══════════════════════════════════════════════════════════════════
+  SESSION 1.1 - INSTALLATION
+  Database Models + Alembic Migrations
+═══════════════════════════════════════════════════════════════════
+
+📍 VORBEREITUNG:
+   - Server gestoppt (STRG+C falls läuft)
+   - In Projekt-Ordner: C:\Users\Startklar\Documents\Server\Serverv2
+   - Virtual Environment aktiv: (venv)
+
+───────────────────────────────────────────────────────────────────
+SCHRITT 1: DATEIEN KOPIEREN
+───────────────────────────────────────────────────────────────────
+
+PowerShell Copy & Paste:
+
+# Database
+copy session_1_1_models\database.py app\database.py
+
+# Models (einzeln kopieren!)
+copy session_1_1_models\kategorie.py app\models\kategorie.py
+copy session_1_1_models\lieferant.py app\models\lieferant.py
+copy session_1_1_models\artikel.py app\models\artikel.py
+copy session_1_1_models\artikel_lieferant.py app\models\artikel_lieferant.py
+copy session_1_1_models\bestand_historie.py app\models\bestand_historie.py
+copy session_1_1_models\models_init.py app\models\__init__.py
+
+# Alembic
+copy session_1_1_models\alembic.ini .
+copy session_1_1_models\env.py migrations\env.py
+copy session_1_1_models\script.py.mako migrations\script.py.mako
+
+───────────────────────────────────────────────────────────────────
+SCHRITT 2: MIGRATION ERSTELLEN
+───────────────────────────────────────────────────────────────────
+
+alembic revision --autogenerate -m "Initial models"
+
+✅ Erwartete Ausgabe:
+   INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+   INFO  [alembic.autogenerate.compare] Detected added table 'kategorien'
+   INFO  [alembic.autogenerate.compare] Detected added table 'lieferanten'
+   INFO  [alembic.autogenerate.compare] Detected added table 'artikel'
+   INFO  [alembic.autogenerate.compare] Detected added table 'artikel_lieferanten'
+   INFO  [alembic.autogenerate.compare] Detected added table 'bestand_historie'
+   Generating migrations\versions\XXXXXXX_initial_models.py ...  done
+
+───────────────────────────────────────────────────────────────────
+SCHRITT 3: MIGRATION AUSFÜHREN
+───────────────────────────────────────────────────────────────────
+
+alembic upgrade head
+
+✅ Erwartete Ausgabe:
+   INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+   INFO  [alembic.runtime.migration] Will assume transactional DDL.
+   INFO  [alembic.runtime.migration] Running upgrade  -> XXXXXXX, Initial models
+
+───────────────────────────────────────────────────────────────────
+SCHRITT 4: VERIFY - TABELLEN CHECK
+───────────────────────────────────────────────────────────────────
+
+docker exec -it radstation-db psql -U postgres -d radstation -c "\dt"
+
+✅ Erwartete Ausgabe:
+                 List of relations
+ Schema |          Name           | Type  |  Owner
+--------+-------------------------+-------+----------
+ public | alembic_version         | table | postgres
+ public | artikel                 | table | postgres
+ public | artikel_lieferanten     | table | postgres
+ public | bestand_historie        | table | postgres
+ public | kategorien              | table | postgres
+ public | lieferanten             | table | postgres
+(6 rows)
+
+───────────────────────────────────────────────────────────────────
+SCHRITT 5: SERVER STARTEN
+───────────────────────────────────────────────────────────────────
+
+uvicorn app.main:app --reload --host 0.0.0.0 --port 5000
+
+✅ Server läuft auf: http://localhost:5000
+
+───────────────────────────────────────────────────────────────────
+🎉 FERTIG! SESSION 1.1 ABGESCHLOSSEN!
+───────────────────────────────────────────────────────────────────
+
+Nächster Schritt: SESSION 1.2 - Seed Data (Kategorien + Lieferanten)
+
+═══════════════════════════════════════════════════════════════════
