@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import ArtikelDetailsModal from './ArtikelDetailsModal'
 import BestellungErstellenModal from './BestellungErstellenModal'
+import Toast from './Toast'
 
 function ArtikelListe() {
   const [artikel, setArtikel] = useState([])
@@ -9,6 +10,12 @@ function ArtikelListe() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedArtikel, setSelectedArtikel] = useState(null)
   const [bestellArtikel, setBestellArtikel] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  // Toast Helper
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+  }
 
   // Artikel von API laden
   useEffect(() => {
@@ -79,7 +86,7 @@ function ArtikelListe() {
   }
 
   const handleBestellungSuccess = (bestellung) => {
-    alert(`Bestellung ${bestellung.bestellnummer} erfolgreich erstellt!`)
+    showToast(`Bestellung ${bestellung.bestellnummer} erfolgreich erstellt!`, 'success')
     setBestellArtikel(null)
     // Optional: Artikel neu laden um aktualisierte Daten zu haben
     // fetchArtikel()
@@ -278,6 +285,15 @@ function ArtikelListe() {
           artikel={bestellArtikel}
           onClose={() => setBestellArtikel(null)}
           onSuccess={handleBestellungSuccess}
+        />
+      )}
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
     </div>

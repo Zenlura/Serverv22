@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Toast from './Toast'
 
 function ArtikelDetailsModal({ artikel, onClose, onSave }) {
   const [editMode, setEditMode] = useState(false)
@@ -9,6 +10,12 @@ function ArtikelDetailsModal({ artikel, onClose, onSave }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('basis')
+  const [toast, setToast] = useState(null)
+  
+  // Toast Helper
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+  }
   
   // Lieferanten-Management
   const [showAddLieferant, setShowAddLieferant] = useState(false)
@@ -88,8 +95,10 @@ function ArtikelDetailsModal({ artikel, onClose, onSave }) {
       const updatedArtikel = await response.json()
       onSave(updatedArtikel)
       setEditMode(false)
+      showToast('Artikel erfolgreich gespeichert!', 'success')
     } catch (err) {
       setError('Fehler beim Speichern: ' + err.message)
+      showToast('Fehler beim Speichern: ' + err.message, 'error')
     } finally {
       setSaving(false)
     }
@@ -109,7 +118,7 @@ function ArtikelDetailsModal({ artikel, onClose, onSave }) {
   // Lieferanten-Management Funktionen
   const handleAddLieferant = async () => {
     if (!newLieferant.lieferant_id) {
-      alert('Bitte wähle einen Lieferanten aus!')
+      showToast('Bitte wähle einen Lieferanten aus!', 'warning')
       return
     }
 
@@ -150,9 +159,11 @@ function ArtikelDetailsModal({ artikel, onClose, onSave }) {
         notizen: ''
       })
       setShowAddLieferant(false)
+      showToast('Lieferant erfolgreich hinzugefügt!', 'success')
       
     } catch (err) {
       setError('Fehler beim Hinzufügen: ' + err.message)
+      showToast('Fehler beim Hinzufügen: ' + err.message, 'error')
     } finally {
       setSaving(false)
     }
@@ -792,6 +803,15 @@ function ArtikelDetailsModal({ artikel, onClose, onSave }) {
           </div>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

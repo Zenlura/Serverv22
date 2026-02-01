@@ -79,17 +79,45 @@ def get_bestellungen(
     limit: int = Query(50, ge=1, le=100),
     status: Optional[str] = None,
     lieferant_id: Optional[int] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = Query(None, regex="^(created_at|bestelldatum|gesamtpreis|bestellnummer|status)$"),
+    sort_order: Optional[str] = Query("desc", regex="^(asc|desc)$"),
     db: Session = Depends(get_db)
 ):
-    """Liste aller Bestellungen"""
+    """Liste aller Bestellungen mit Suche und Sortierung"""
+    from app.models.lieferant import Lieferant
+    from app.models.artikel import Artikel
+    
     query = db.query(Bestellung)
     
+    # Status Filter
     if status:
         query = query.filter(Bestellung.status == status)
+    
+    # Lieferant Filter
     if lieferant_id:
         query = query.filter(Bestellung.lieferant_id == lieferant_id)
     
-    query = query.order_by(Bestellung.created_at.desc())
+    # Suchfunktion
+    if search:
+        search_term = f"%{search}%"
+        query = query.join(Bestellung.lieferant).filter(
+            (Bestellung.bestellnummer.ilike(search_term)) |
+            (Lieferant.name.ilike(search_term)) |
+            (Bestellung.notizen.ilike(search_term))
+        )
+    
+    # Sortierung
+    if sort_by:
+        sort_column = getattr(Bestellung, sort_by)
+        if sort_order == "asc":
+            query = query.order_by(sort_column.asc())
+        else:
+            query = query.order_by(sort_column.desc())
+    else:
+        # Default: neueste zuerst
+        query = query.order_by(Bestellung.created_at.desc())
+    
     total = query.count()
     bestellungen = query.offset(skip).limit(limit).all()
     

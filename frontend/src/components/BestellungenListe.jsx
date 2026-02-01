@@ -1,23 +1,48 @@
 import { useState, useEffect } from 'react'
 import BestellungBearbeitenModal from '../components/BestellungBearbeitenModal'
+import Toast from '../components/Toast'
 
 function BestellungenListe() {
   const [bestellungen, setBestellungen] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filterStatus, setFilterStatus] = useState('alle')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [sortBy, setSortBy] = useState('created_at')
+  const [sortOrder, setSortOrder] = useState('desc')
   const [selectedBestellung, setSelectedBestellung] = useState(null)
   const [showDetails, setShowDetails] = useState(false)
   const [editingBestellung, setEditingBestellung] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  // Toast Helper
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+  }
 
   useEffect(() => {
     fetchBestellungen()
-  }, [])
+  }, [filterStatus, searchTerm, sortBy, sortOrder])
 
   const fetchBestellungen = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/bestellungen')
+      
+      // Build query params
+      const params = new URLSearchParams()
+      if (filterStatus !== 'alle') {
+        params.append('status', filterStatus)
+      }
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim())
+      }
+      if (sortBy) {
+        params.append('sort_by', sortBy)
+        params.append('sort_order', sortOrder)
+      }
+      
+      const url = `/api/bestellungen${params.toString() ? '?' + params.toString() : ''}`
+      const response = await fetch(url)
       
       if (!response.ok) {
         throw new Error(`HTTP Error: ${response.status}`)
@@ -34,6 +59,24 @@ function BestellungenListe() {
     }
   }
 
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      // Toggle sort order
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // New column, default to desc
+      setSortBy(column)
+      setSortOrder('desc')
+    }
+  }
+
+  const getSortIcon = (column) => {
+    if (sortBy !== column) {
+      return '↕️'
+    }
+    return sortOrder === 'asc' ? '↑' : '↓'
+  }
+
   const handleWareneingang = async (bestellungId) => {
     if (!confirm('Wareneingang für diese Bestellung buchen?\nDies erhöht die Bestände automatisch!')) {
       return
@@ -48,7 +91,7 @@ function BestellungenListe() {
         throw new Error(`Fehler: ${response.status}`)
       }
 
-      alert('✅ Wareneingang erfolgreich gebucht!\nBestände wurden aktualisiert.')
+      showToast('Wareneingang erfolgreich gebucht! Bestände wurden aktualisiert.', 'success')
       fetchBestellungen()
       
       if (selectedBestellung?.id === bestellungId) {
@@ -56,7 +99,7 @@ function BestellungenListe() {
         setSelectedBestellung(null)
       }
     } catch (err) {
-      alert('Fehler beim Buchen: ' + err.message)
+      showToast('Fehler beim Buchen: ' + err.message, 'error')
     }
   }
 
@@ -77,9 +120,10 @@ function BestellungenListe() {
         throw new Error(`Fehler: ${response.status}`)
       }
 
+      showToast('Status erfolgreich geändert!', 'success')
       fetchBestellungen()
     } catch (err) {
-      alert('Fehler beim Aktualisieren: ' + err.message)
+      showToast('Fehler beim Aktualisieren: ' + err.message, 'error')
     }
   }
 
@@ -95,10 +139,10 @@ function BestellungenListe() {
         throw new Error(`Fehler: ${response.status}`)
       }
 
-      alert('✅ Bestellung gelöscht!')
+      showToast('Bestellung erfolgreich gelöscht!', 'success')
       fetchBestellungen()
     } catch (err) {
-      alert('Fehler beim Löschen: ' + err.message)
+      showToast('Fehler beim Löschen: ' + err.message, 'error')
     }
   }
 
@@ -149,10 +193,6 @@ function BestellungenListe() {
     )
   }
 
-  const gefiltert = filterStatus === 'alle' 
-    ? bestellungen 
-    : bestellungen.filter(b => b.status === filterStatus)
-
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -186,12 +226,36 @@ function BestellungenListe() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800">📦 Bestellungen</h2>
-            <p className="text-gray-600 text-sm mt-1">
-              {bestellungen.length} Bestellungen insgesamt
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">📦 Bestellungen</h2>
+              <p className="text-gray-600 text-sm mt-1">
+                {bestellungen.length} Bestellungen {searchTerm ? 'gefunden' : 'insgesamt'}
+              </p>
+            </div>
+
+            {/* Suchfeld */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Suche nach Bestellnummer, Lieferant..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Filter */}
@@ -204,7 +268,7 @@ function BestellungenListe() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Alle ({bestellungen.length})
+              Alle
             </button>
             <button
               onClick={() => setFilterStatus('entwurf')}
@@ -214,7 +278,7 @@ function BestellungenListe() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Entwürfe ({bestellungen.filter(b => b.status === 'entwurf').length})
+              📝 Entwürfe
             </button>
             <button
               onClick={() => setFilterStatus('bestellt')}
@@ -224,7 +288,7 @@ function BestellungenListe() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Bestellt ({bestellungen.filter(b => b.status === 'bestellt').length})
+              📦 Bestellt
             </button>
             <button
               onClick={() => setFilterStatus('geliefert')}
@@ -234,7 +298,7 @@ function BestellungenListe() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Geliefert ({bestellungen.filter(b => b.status === 'geliefert').length})
+              ✅ Geliefert
             </button>
           </div>
         </div>
@@ -242,25 +306,68 @@ function BestellungenListe() {
 
       {/* Bestellungen Liste */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        {gefiltert.length === 0 ? (
+        {bestellungen.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            {filterStatus === 'alle' ? 'Noch keine Bestellungen' : `Keine ${filterStatus} Bestellungen`}
+            {searchTerm ? (
+              <div>
+                <p className="text-lg mb-2">🔍 Keine Ergebnisse</p>
+                <p className="text-sm">Keine Bestellungen gefunden für "{searchTerm}"</p>
+              </div>
+            ) : filterStatus === 'alle' ? (
+              'Noch keine Bestellungen'
+            ) : (
+              `Keine ${filterStatus} Bestellungen`
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bestellnummer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lieferant</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Gesamtpreis</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Erstellt</th>
+                  <th 
+                    onClick={() => handleSort('bestellnummer')}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      Bestellnummer
+                      <span className="text-sm">{getSortIcon('bestellnummer')}</span>
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Lieferant
+                  </th>
+                  <th 
+                    onClick={() => handleSort('status')}
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Status
+                      <span className="text-sm">{getSortIcon('status')}</span>
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('gesamtpreis')}
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition"
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      Gesamtpreis
+                      <span className="text-sm">{getSortIcon('gesamtpreis')}</span>
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('created_at')}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      Erstellt
+                      <span className="text-sm">{getSortIcon('created_at')}</span>
+                    </div>
+                  </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aktionen</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {gefiltert.map((bestellung) => (
+                {bestellungen.map((bestellung) => (
                   <tr key={bestellung.id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-mono text-sm font-medium text-gray-900">
@@ -485,6 +592,15 @@ function BestellungenListe() {
           bestellung={editingBestellung}
           onClose={() => setEditingBestellung(null)}
           onUpdate={handleUpdateBestellung}
+        />
+      )}
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
     </div>

@@ -8,6 +8,7 @@ import {
   XCircleIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
+import Toast from './Toast';
 
 const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
@@ -31,6 +32,12 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  // Toast Helper
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
 
   // Initialisiere Formular mit Bestelldaten
   useEffect(() => {
@@ -102,7 +109,7 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
     if (bestellung.status !== 'entwurf' && 
         (editingPosition.menge !== positionen.find(p => p.id === editingPosition.id)?.menge ||
          editingPosition.einzelpreis !== positionen.find(p => p.id === editingPosition.id)?.einzelpreis)) {
-      setError('Menge und Preis können nur bei Entwürfen geändert werden');
+      showToast('Menge und Preis können nur bei Entwürfen geändert werden', 'warning');
       return;
     }
 
@@ -130,8 +137,10 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
           : p
       ));
       setEditingPosition(null);
+      showToast('Position gespeichert!', 'success');
     } catch (err) {
       setError(err.message);
+      showToast('Fehler: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -140,12 +149,12 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
   // Position löschen
   const handlePositionDelete = async (positionId) => {
     if (positionen.length <= 1) {
-      setError('Mindestens eine Position muss verbleiben');
+      showToast('Mindestens eine Position muss verbleiben', 'warning');
       return;
     }
 
     if (bestellung.status !== 'entwurf') {
-      setError('Positionen können nur bei Entwürfen gelöscht werden');
+      showToast('Positionen können nur bei Entwürfen gelöscht werden', 'warning');
       return;
     }
 
@@ -161,8 +170,10 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
       if (!response.ok) throw new Error('Fehler beim Löschen');
 
       setPositionen(positionen.filter(p => p.id !== positionId));
+      showToast('Position gelöscht!', 'success');
     } catch (err) {
       setError(err.message);
+      showToast('Fehler: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -184,7 +195,7 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
     if (!neuerArtikel) return;
 
     if (bestellung.status !== 'entwurf') {
-      setError('Positionen können nur bei Entwürfen hinzugefügt werden');
+      showToast('Positionen können nur bei Entwürfen hinzugefügt werden', 'warning');
       return;
     }
 
@@ -210,8 +221,10 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
       setNeuerArtikel(null);
       setShowAddArtikel(false);
       setNeuePosition({ menge: 1, einzelpreis: 0, notizen: '' });
+      showToast('Artikel hinzugefügt!', 'success');
     } catch (err) {
       setError(err.message);
+      showToast('Fehler: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -238,10 +251,14 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
       if (!response.ok) throw new Error('Fehler beim Speichern');
 
       const updated = await response.json();
-      onUpdate(updated);
-      onClose();
+      showToast('Änderungen erfolgreich gespeichert!', 'success');
+      setTimeout(() => {
+        onUpdate(updated);
+        onClose();
+      }, 500);
     } catch (err) {
       setError(err.message);
+      showToast('Fehler: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -261,9 +278,11 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
 
       const updated = await response.json();
       setFormData({ ...formData, status: newStatus });
+      showToast('Status erfolgreich geändert!', 'success');
       onUpdate(updated);
     } catch (err) {
       setError(err.message);
+      showToast('Fehler: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -272,7 +291,7 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
   // Bestellung löschen
   const handleDelete = async () => {
     if (bestellung.status !== 'entwurf') {
-      setError('Nur Entwürfe können gelöscht werden');
+      showToast('Nur Entwürfe können gelöscht werden', 'warning');
       return;
     }
 
@@ -286,10 +305,14 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
 
       if (!response.ok) throw new Error('Fehler beim Löschen');
 
-      onUpdate(null); // Signal zum Entfernen
-      onClose();
+      showToast('Bestellung erfolgreich gelöscht!', 'success');
+      setTimeout(() => {
+        onUpdate(null); // Signal zum Entfernen
+        onClose();
+      }, 500);
     } catch (err) {
       setError(err.message);
+      showToast('Fehler: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -684,6 +707,15 @@ const BestellungBearbeitenModal = ({ bestellung, onClose, onUpdate }) => {
           </div>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };
