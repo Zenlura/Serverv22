@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import ArtikelDetailsModal from './ArtikelDetailsModal'
 
 function ArtikelListe() {
   const [artikel, setArtikel] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedArtikel, setSelectedArtikel] = useState(null)
 
   // Artikel von API laden
   useEffect(() => {
@@ -49,6 +51,25 @@ function ArtikelListe() {
       style: 'currency',
       currency: 'EUR'
     }).format(preis || 0)
+  }
+
+  // Modal-Handler
+  const handleArtikelClick = (artikel) => {
+    setSelectedArtikel(artikel)
+  }
+
+  const handleModalClose = () => {
+    setSelectedArtikel(null)
+  }
+
+  const handleArtikelSave = (updatedArtikel) => {
+    // Artikel in der Liste aktualisieren
+    setArtikel(prev => 
+      prev.map(a => a.id === updatedArtikel.id ? updatedArtikel : a)
+    )
+    setSelectedArtikel(null)
+    // Optionally: Liste neu laden
+    // fetchArtikel()
   }
 
   if (loading) {
@@ -185,7 +206,7 @@ function ArtikelListe() {
                     <td className="px-6 py-4 text-right text-sm">
                       <button
                         className="text-blue-600 hover:text-blue-800 font-medium transition"
-                        onClick={() => alert(`Bearbeiten wird in Session 1.8 implementiert\nArtikel: ${artikel.bezeichnung}`)}
+                        onClick={() => handleArtikelClick(artikel)}
                       >
                         Bearbeiten
                       </button>
@@ -215,6 +236,15 @@ function ArtikelListe() {
           </div>
         </div>
       </div>
+
+      {/* Artikel-Details-Modal */}
+      {selectedArtikel && (
+        <ArtikelDetailsModal
+          artikel={selectedArtikel}
+          onClose={handleModalClose}
+          onSave={handleArtikelSave}
+        />
+      )}
     </div>
   )
 }
