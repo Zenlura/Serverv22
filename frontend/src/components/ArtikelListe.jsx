@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import ArtikelDetailsModal from './ArtikelDetailsModal'
+import BestellungErstellenModal from './BestellungErstellenModal'
 
 function ArtikelListe() {
   const [artikel, setArtikel] = useState([])
@@ -7,6 +8,7 @@ function ArtikelListe() {
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedArtikel, setSelectedArtikel] = useState(null)
+  const [bestellArtikel, setBestellArtikel] = useState(null)
 
   // Artikel von API laden
   useEffect(() => {
@@ -69,6 +71,17 @@ function ArtikelListe() {
     )
     setSelectedArtikel(null)
     // Optionally: Liste neu laden
+    // fetchArtikel()
+  }
+
+  const handleNachbestellen = (artikel) => {
+    setBestellArtikel(artikel)
+  }
+
+  const handleBestellungSuccess = (bestellung) => {
+    alert(`Bestellung ${bestellung.bestellnummer} erfolgreich erstellt!`)
+    setBestellArtikel(null)
+    // Optional: Artikel neu laden um aktualisierte Daten zu haben
     // fetchArtikel()
   }
 
@@ -154,7 +167,7 @@ function ArtikelListe() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Hauptlieferant
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Aktionen
                 </th>
               </tr>
@@ -203,13 +216,26 @@ function ArtikelListe() {
                         : '-'
                       }
                     </td>
-                    <td className="px-6 py-4 text-right text-sm">
-                      <button
-                        className="text-blue-600 hover:text-blue-800 font-medium transition"
-                        onClick={() => handleArtikelClick(artikel)}
-                      >
-                        Bearbeiten
-                      </button>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          className="text-blue-600 hover:text-blue-800 font-medium transition"
+                          onClick={() => handleArtikelClick(artikel)}
+                        >
+                          📝
+                        </button>
+                        <button
+                          className={`px-3 py-1 rounded-lg font-medium transition ${
+                            getBestand(artikel) <= (artikel.mindestbestand || 0)
+                              ? 'bg-orange-600 text-white hover:bg-orange-700'
+                              : 'bg-green-600 text-white hover:bg-green-700'
+                          }`}
+                          onClick={() => handleNachbestellen(artikel)}
+                          title="Artikel nachbestellen"
+                        >
+                          📦 Nachbestellen
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -243,6 +269,15 @@ function ArtikelListe() {
           artikel={selectedArtikel}
           onClose={handleModalClose}
           onSave={handleArtikelSave}
+        />
+      )}
+
+      {/* Bestellung-Erstellen-Modal */}
+      {bestellArtikel && (
+        <BestellungErstellenModal
+          artikel={bestellArtikel}
+          onClose={() => setBestellArtikel(null)}
+          onSuccess={handleBestellungSuccess}
         />
       )}
     </div>
