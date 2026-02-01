@@ -154,7 +154,7 @@ def import_artikel(excel_path: str):
                                 artikel_id=artikel.id,
                                 lieferant_id=lieferant.id,
                                 lieferanten_artikelnummer=str(lief_artnr).strip(),
-                                ist_hauptlieferant=(lief_spalte == 'Hartje')  # Hartje = Standard
+                                bevorzugt=(lief_spalte == 'Hartje')  # Hartje = bevorzugter Lieferant
                             )
                             session.add(verknuepfung)
                             lieferanten_verknuepft.append(lief_spalte)
@@ -192,8 +192,11 @@ def import_artikel(excel_path: str):
         
         # DB-Status
         total_artikel = session.query(Artikel).count()
-        total_bestand = session.query(Artikel).with_entities(
-            session.query(Artikel.bestand).label('sum')
+        
+        # Bestand = Lager + Werkstatt
+        from sqlalchemy import func as sql_func
+        total_bestand = session.query(
+            sql_func.sum(Artikel.bestand_lager + Artikel.bestand_werkstatt)
         ).scalar() or 0
         
         print(f"📦 DATENBANK-STATUS:")
