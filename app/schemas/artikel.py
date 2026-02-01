@@ -1,7 +1,7 @@
 """
 Pydantic Schemas für Artikel
 """
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, computed_field
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
@@ -66,7 +66,7 @@ class ArtikelBase(BaseModel):
     verkaufspreis: Optional[Decimal] = Field(default=None, ge=0)
     
     # Flags
-    ist_aktiv: bool = True
+    aktiv: bool = True
 
 
 class ArtikelCreate(ArtikelBase):
@@ -88,7 +88,7 @@ class ArtikelUpdate(BaseModel):
     einkaufspreis: Optional[Decimal] = Field(None, ge=0)
     verkaufspreis: Optional[Decimal] = Field(None, ge=0)
     
-    ist_aktiv: Optional[bool] = None
+    aktiv: Optional[bool] = None
 
 
 class ArtikelResponse(ArtikelBase):
@@ -99,6 +99,7 @@ class ArtikelResponse(ArtikelBase):
     # Relationships
     kategorie: Optional[KategorieBase] = None
     lieferanten: List[ArtikelLieferantInfo] = []
+    hauptlieferant: Optional[LieferantBase] = None  # Der bevorzugte Lieferant
     
     # Timestamps
     created_at: datetime

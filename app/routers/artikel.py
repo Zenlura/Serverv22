@@ -10,6 +10,7 @@ import math
 
 from ..database import get_db
 from ..models.artikel import Artikel
+from ..models.artikel_lieferant import ArtikelLieferant
 from ..models.bestand_historie import BestandHistorie
 from ..schemas import artikel as schemas
 
@@ -40,12 +41,12 @@ def get_artikel_liste(
     # Base Query
     query = db.query(Artikel).options(
         joinedload(Artikel.kategorie),
-        joinedload(Artikel.artikel_lieferanten).joinedload("lieferant")
+        joinedload(Artikel.artikel_lieferanten).joinedload(ArtikelLieferant.lieferant)
     )
     
     # Filter: Nur aktive
     if nur_aktive:
-        query = query.filter(Artikel.ist_aktiv == True)
+        query = query.filter(Artikel.aktiv == True)
     
     # Filter: Kategorie
     if kategorie_id:
@@ -74,18 +75,24 @@ def get_artikel_liste(
     offset = (page - 1) * page_size
     artikel = query.order_by(Artikel.artikelnummer).offset(offset).limit(page_size).all()
     
-    # Compute bestand_gesamt für jeden Artikel
-    items = []
+    # Hauptlieferant für jeden Artikel berechnen
     for art in artikel:
-        art_dict = art.__dict__.copy()
-        art_dict['bestand_gesamt'] = art.bestand_lager + art.bestand_werkstatt
-        items.append(schemas.ArtikelResponse.from_orm(art))
+        # Hauptlieferant = bevorzugter Lieferant oder erster
+        art.hauptlieferant = None
+        if art.artikel_lieferanten:
+            # Suche bevorzugten Lieferanten
+            bevorzugt = next((al.lieferant for al in art.artikel_lieferanten if al.bevorzugt), None)
+            if bevorzugt:
+                art.hauptlieferant = bevorzugt
+            else:
+                # Fallback: erster Lieferant
+                art.hauptlieferant = art.artikel_lieferanten[0].lieferant
     
     # Pages berechnen
     pages = math.ceil(total / page_size) if total > 0 else 1
     
     return schemas.ArtikelListResponse(
-        items=items,
+        items=[schemas.ArtikelResponse.model_validate(art) for art in artikel],
         total=total,
         page=page,
         page_size=page_size,
@@ -102,14 +109,22 @@ def get_artikel(artikel_id: int, db: Session = Depends(get_db)):
     """Gibt einzelnen Artikel zurück"""
     artikel = db.query(Artikel).options(
         joinedload(Artikel.kategorie),
-        joinedload(Artikel.artikel_lieferanten).joinedload("lieferant")
+        joinedload(Artikel.artikel_lieferanten).joinedload(ArtikelLieferant.lieferant)
     ).filter(Artikel.id == artikel_id).first()
     
     if not artikel:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden")
     
-    # Bestand gesamt berechnen
-    artikel.bestand_gesamt = artikel.bestand_lager + artikel.bestand_werkstatt
+    # Hauptlieferant = bevorzugter Lieferant oder erster
+    artikel.hauptlieferant = None
+    if artikel.artikel_lieferanten:
+        # Suche bevorzugten Lieferanten
+        bevorzugt = next((al.lieferant for al in artikel.artikel_lieferanten if al.bevorzugt), None)
+        if bevorzugt:
+            artikel.hauptlieferant = bevorzugt
+        else:
+            # Fallback: erster Lieferant
+            artikel.hauptlieferant = artikel.artikel_lieferanten[0].lieferant
     
     return artikel
 
@@ -132,9 +147,6 @@ def create_artikel(artikel_data: schemas.ArtikelCreate, db: Session = Depends(ge
     db.add(artikel)
     db.commit()
     db.refresh(artikel)
-    
-    # Bestand gesamt berechnen
-    artikel.bestand_gesamt = artikel.bestand_lager + artikel.bestand_werkstatt
     
     return artikel
 
@@ -172,9 +184,6 @@ def update_artikel(
     
     db.commit()
     db.refresh(artikel)
-    
-    # Bestand gesamt berechnen
-    artikel.bestand_gesamt = artikel.bestand_lager + artikel.bestand_werkstatt
     
     return artikel
 
@@ -237,9 +246,6 @@ def aendere_bestand(
     
     db.commit()
     db.refresh(artikel)
-    
-    # Bestand gesamt berechnen
-    artikel.bestand_gesamt = artikel.bestand_lager + artikel.bestand_werkstatt
     
     return artikel
 

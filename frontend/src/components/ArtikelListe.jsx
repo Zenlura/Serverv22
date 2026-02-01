@@ -21,7 +21,8 @@ function ArtikelListe() {
       }
       
       const data = await response.json()
-      setArtikel(data)
+      // API gibt {items: [...], total: ..., ...} zurück
+      setArtikel(data.items || data || [])
       setError(null)
     } catch (err) {
       setError('Fehler beim Laden der Artikel: ' + err.message)
@@ -36,6 +37,11 @@ function ArtikelListe() {
     a.artikelnummer.toLowerCase().includes(searchTerm.toLowerCase()) ||
     a.bezeichnung.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Bestand berechnen (Lager + Werkstatt)
+  const getBestand = (artikel) => {
+    return (artikel.bestand_lager || 0) + (artikel.bestand_werkstatt || 0)
+  }
 
   // Preis formatieren
   const formatPreis = (preis) => {
@@ -155,13 +161,13 @@ function ArtikelListe() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                        artikel.bestand > 10 
+                        getBestand(artikel) > 10 
                           ? 'bg-green-100 text-green-800'
-                          : artikel.bestand > 0
+                          : getBestand(artikel) > 0
                           ? 'bg-yellow-100 text-yellow-800'
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {artikel.bestand}
+                        {getBestand(artikel)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right text-sm text-gray-900">
@@ -171,7 +177,10 @@ function ArtikelListe() {
                       {formatPreis(artikel.verkaufspreis)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {artikel.hauptlieferant?.name || '-'}
+                      {artikel.lieferanten && artikel.lieferanten.length > 0 
+                        ? artikel.lieferanten.find(l => l.bevorzugt)?.lieferant?.name || artikel.lieferanten[0]?.lieferant?.name || '-'
+                        : '-'
+                      }
                     </td>
                     <td className="px-6 py-4 text-right text-sm">
                       <button
@@ -202,7 +211,7 @@ function ArtikelListe() {
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Gesamt Bestand</div>
           <div className="text-2xl font-bold text-green-600">
-            {artikel.reduce((sum, a) => sum + (a.bestand || 0), 0)}
+            {artikel.reduce((sum, a) => sum + getBestand(a), 0)}
           </div>
         </div>
       </div>
