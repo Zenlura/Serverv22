@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import BestellungBearbeitenModal from '../components/BestellungBearbeitenModal'
 
 function BestellungenListe() {
   const [bestellungen, setBestellungen] = useState([])
@@ -7,6 +8,7 @@ function BestellungenListe() {
   const [filterStatus, setFilterStatus] = useState('alle')
   const [selectedBestellung, setSelectedBestellung] = useState(null)
   const [showDetails, setShowDetails] = useState(false)
+  const [editingBestellung, setEditingBestellung] = useState(null)
 
   useEffect(() => {
     fetchBestellungen()
@@ -79,6 +81,36 @@ function BestellungenListe() {
     } catch (err) {
       alert('Fehler beim Aktualisieren: ' + err.message)
     }
+  }
+
+  const handleDelete = async (bestellungId) => {
+    if (!confirm('Bestellung wirklich löschen?')) return
+
+    try {
+      const response = await fetch(`/api/bestellungen/${bestellungId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error(`Fehler: ${response.status}`)
+      }
+
+      alert('✅ Bestellung gelöscht!')
+      fetchBestellungen()
+    } catch (err) {
+      alert('Fehler beim Löschen: ' + err.message)
+    }
+  }
+
+  const handleUpdateBestellung = (updated) => {
+    if (!updated) {
+      // Bestellung wurde gelöscht
+      fetchBestellungen()
+    } else {
+      // Bestellung wurde aktualisiert
+      fetchBestellungen()
+    }
+    setEditingBestellung(null)
   }
 
   const formatPreis = (preis) => {
@@ -260,6 +292,36 @@ function BestellungenListe() {
                         >
                           Details
                         </button>
+                        
+                        {/* Bearbeiten für alle Status */}
+                        <button
+                          onClick={() => setEditingBestellung(bestellung)}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Bearbeiten
+                        </button>
+                        
+                        {/* Zurück zu Entwurf - für Nicht-Entwürfe */}
+                        {bestellung.status !== 'entwurf' && bestellung.status !== 'geliefert' && (
+                          <button
+                            onClick={() => handleStatusChange(bestellung.id, 'entwurf')}
+                            className="text-orange-600 hover:text-orange-800 font-medium"
+                            title="Zurück zu Entwurf (dann löschbar)"
+                          >
+                            ↩️ Entwurf
+                          </button>
+                        )}
+                        
+                        {/* Löschen nur bei Entwürfen */}
+                        {bestellung.status === 'entwurf' && (
+                          <button
+                            onClick={() => handleDelete(bestellung.id)}
+                            className="text-red-600 hover:text-red-800 font-medium"
+                          >
+                            Löschen
+                          </button>
+                        )}
+                        
                         {bestellung.status === 'bestellt' && (
                           <button
                             onClick={() => handleWareneingang(bestellung.id)}
@@ -415,6 +477,15 @@ function BestellungenListe() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bearbeiten Modal */}
+      {editingBestellung && (
+        <BestellungBearbeitenModal
+          bestellung={editingBestellung}
+          onClose={() => setEditingBestellung(null)}
+          onUpdate={handleUpdateBestellung}
+        />
       )}
     </div>
   )
