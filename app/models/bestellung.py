@@ -1,78 +1,98 @@
 """
-Bestellung Models für Warenwirtschaft
+Bestellung Models
+Verwaltung von Bestellungen bei Lieferanten
 """
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Numeric, Text, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Numeric, Boolean, Text, ForeignKey, Enum
 from sqlalchemy.orm import relationship
-from datetime import datetime
-import enum
+from sqlalchemy.sql import func
+from enum import Enum as PyEnum
+from ..database import Base
 
-from app.database import Base
 
-
-class BestellStatus(str, enum.Enum):
-    ENTWURF = "entwurf"           # Noch nicht abgeschickt
-    BESTELLT = "bestellt"         # Bei Lieferant bestellt
-    TEILGELIEFERT = "teilgeliefert"  # Nur ein Teil angekommen
-    GELIEFERT = "geliefert"       # Komplett angekommen
-    STORNIERT = "storniert"       # Bestellung abgebrochen
+class BestellStatus(str, PyEnum):
+    """Status einer Bestellung"""
+    ENTWURF = "entwurf"
+    BESTELLT = "bestellt"
+    TEILGELIEFERT = "teilgeliefert"
+    GELIEFERT = "geliefert"
+    STORNIERT = "storniert"
 
 
 class Bestellung(Base):
+    """
+    Bestellung bei einem Lieferanten
+    """
     __tablename__ = "bestellungen"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    bestellnummer = Column(String(50), unique=True, nullable=False, index=True)
-    
-    # Lieferant
+    bestellnummer = Column(String(50), nullable=False, unique=True, index=True)
     lieferant_id = Column(Integer, ForeignKey("lieferanten.id"), nullable=False)
-    lieferant = relationship("Lieferant", back_populates="bestellungen")
     
-    # Status & Daten
-    status = Column(Enum(BestellStatus), default=BestellStatus.ENTWURF, nullable=False)
-    bestelldatum = Column(DateTime, nullable=True)  # Wann bestellt
-    lieferdatum_erwartet = Column(DateTime, nullable=True)  # Wann erwartet
-    lieferdatum_tatsaechlich = Column(DateTime, nullable=True)  # Wann tatsächlich geliefert
+    # Status
+    status = Column(
+        Enum(BestellStatus, name="bestellstatus"),
+        nullable=False,
+        default=BestellStatus.ENTWURF
+    )
     
-    # Kosten
-    gesamtpreis = Column(Numeric(10, 2), default=0.0)
-    versandkosten = Column(Numeric(10, 2), default=0.0)
+    # Daten
+    bestelldatum = Column(DateTime(timezone=True))  # Wann bei Lieferant bestellt
+    lieferdatum_erwartet = Column(DateTime(timezone=True))  # Wann erwartet
+    lieferdatum_tatsaechlich = Column(DateTime(timezone=True))  # Wann tatsächlich geliefert
+    
+    # Preise
+    gesamtpreis = Column(Numeric(10, 2), nullable=False, default=0.0)
+    versandkosten = Column(Numeric(10, 2), nullable=False, default=0.0)
     
     # Notizen
-    notizen = Column(Text, nullable=True)
-    interne_notizen = Column(Text, nullable=True)  # Für interne Infos
+    notizen = Column(Text)  # Für Lieferant (z.B. "Bitte schnell liefern")
+    interne_notizen = Column(Text)  # Interne Notizen
     
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    positionen = relationship("BestellPosition", back_populates="bestellung", cascade="all, delete-orphan")
+    lieferant = relationship("Lieferant", back_populates="bestellungen")
+    positionen = relationship(
+        "BestellPosition",
+        back_populates="bestellung",
+        cascade="all, delete-orphan"
+    )
+    
+    def __repr__(self):
+        return f"<Bestellung {self.bestellnummer} - {self.status}>"
 
 
 class BestellPosition(Base):
+    """
+    Position in einer Bestellung (ein Artikel)
+    """
     __tablename__ = "bestellpositionen"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    
-    # Zuordnung
-    bestellung_id = Column(Integer, ForeignKey("bestellungen.id"), nullable=False)
-    bestellung = relationship("Bestellung", back_populates="positionen")
-    
+    bestellung_id = Column(Integer, ForeignKey("bestellungen.id", ondelete="CASCADE"), nullable=False)
     artikel_id = Column(Integer, ForeignKey("artikel.id"), nullable=False)
-    artikel = relationship("Artikel")
     
-    # Menge & Preis
-    menge = Column(Integer, nullable=False)
-    einzelpreis = Column(Numeric(10, 2), nullable=False)  # EK vom Lieferanten
-    gesamtpreis = Column(Numeric(10, 2), nullable=False)  # menge * einzelpreis
+    # Bestellung
+    menge = Column(Integer, nullable=False)  # Bestellte Menge
+    einzelpreis = Column(Numeric(10, 2), nullable=False)  # Einkaufspreis vom Lieferanten
+    gesamtpreis = Column(Numeric(10, 2), nullable=False)  # Automatisch berechnet
     
-    # Lieferung
-    menge_geliefert = Column(Integer, default=0, nullable=False)  # Wie viel tatsächlich geliefert
-    geliefert = Column(Boolean, default=False, nullable=False)  # Komplett geliefert?
+    # Wareneingang
+    menge_geliefert = Column(Integer, nullable=False, default=0)
+    geliefert = Column(Boolean, nullable=False, default=False)
     
     # Notizen
-    notizen = Column(Text, nullable=True)
+    notizen = Column(Text)
     
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    bestellung = relationship("Bestellung", back_populates="positionen")
+    artikel = relationship("Artikel")
+    
+    def __repr__(self):
+        return f"<BestellPosition {self.artikel_id} x {self.menge}>"

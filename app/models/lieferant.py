@@ -39,6 +39,7 @@ class Lieferant(Base):
     
     # Relationships
     artikel_lieferanten = relationship("ArtikelLieferant", back_populates="lieferant")
+    bestellungen = relationship("Bestellung", back_populates="lieferant")  # ← NEU!
     
     def __repr__(self):
         return f"<Lieferant {self.name}>"
