@@ -12,7 +12,7 @@ from decimal import Decimal
 # ============================================================================
 
 class ReparaturPositionBase(BaseModel):
-    typ: str = Field(..., description="'arbeit' oder 'teil'")
+    typ: str = Field(..., description="'arbeit' oder 'teil'", pattern="^(arbeit|teil)$")
     artikel_id: Optional[int] = None
     bezeichnung: str
     beschreibung: Optional[str] = None
@@ -25,6 +25,7 @@ class ReparaturPositionCreate(ReparaturPositionBase):
 
 
 class ReparaturPositionUpdate(BaseModel):
+    typ: Optional[str] = Field(None, pattern="^(arbeit|teil)$")
     bezeichnung: Optional[str] = None
     beschreibung: Optional[str] = None
     menge: Optional[Decimal] = Field(None, ge=0)
@@ -61,7 +62,7 @@ class ReparaturBase(BaseModel):
     
     # Reparatur
     maengelbeschreibung: str = Field(..., min_length=1)
-    status: str = Field(default='angenommen')
+    status: str = Field(default='angenommen', pattern="^(angenommen|in_arbeit|wartet_auf_teile|fertig|abgeholt|storniert)$")
     
     # Termine
     fertig_bis: Optional[datetime] = None
@@ -94,7 +95,7 @@ class ReparaturUpdate(BaseModel):
     
     # Reparatur
     maengelbeschreibung: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[str] = Field(None, pattern="^(angenommen|in_arbeit|wartet_auf_teile|fertig|abgeholt|storniert)$")
     
     # Termine
     fertig_bis: Optional[datetime] = None
@@ -112,7 +113,7 @@ class ReparaturUpdate(BaseModel):
 
 
 class ReparaturStatusUpdate(BaseModel):
-    status: str = Field(..., regex="^(angenommen|in_arbeit|wartet_auf_teile|fertig|abgeholt|storniert)$")
+    status: str = Field(..., pattern="^(angenommen|in_arbeit|wartet_auf_teile|fertig|abgeholt|storniert)$")
 
 
 class ReparaturResponse(ReparaturBase):
