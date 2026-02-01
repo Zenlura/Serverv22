@@ -51,7 +51,7 @@ def create_bestellung(
         notizen=bestellung.notizen,
         interne_notizen=bestellung.interne_notizen,
         versandkosten=bestellung.versandkosten or Decimal("0.0"),
-        status=BestellStatus.ENTWURF
+        status=BestellStatus.ENTWURF.value  # ← FIX: .value verwenden!
     )
     
     # Positionen hinzufügen
@@ -161,7 +161,7 @@ def update_bestellung(
     
     # Update Felder
     if update.status:
-        bestellung.status = BestellStatus(update.status)
+        bestellung.status = update.status  # Hier ist es schon ein String vom Frontend
     if update.bestelldatum is not None:
         bestellung.bestelldatum = update.bestelldatum
     if update.lieferdatum_erwartet is not None:
@@ -222,7 +222,7 @@ def wareneingang_buchen(
             position.geliefert = True
     
     # Bestellung-Status aktualisieren
-    bestellung.status = BestellStatus.GELIEFERT
+    bestellung.status = BestellStatus.GELIEFERT.value  # ← FIX: .value verwenden!
     bestellung.lieferdatum_tatsaechlich = datetime.now()
     
     db.commit()
@@ -244,7 +244,7 @@ def delete_bestellung(
     if not bestellung:
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden")
     
-    if bestellung.status != BestellStatus.ENTWURF:
+    if bestellung.status != BestellStatus.ENTWURF.value:  # ← FIX: .value verwenden!
         raise HTTPException(
             status_code=400,
             detail="Nur Entwürfe können gelöscht werden"
