@@ -120,7 +120,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)) -> Dict[str, Any]:
     # Reservierungen (noch nicht abgeholt)
     reservierungen_offen = db.query(Vermietung).filter(
         and_(
-            Vermietung.status == VermietungStatus.reserviert,
+            Vermietung.status == VermietungStatus.aktiv,
             Vermietung.rad_abgeholt == False
         )
     ).count()
@@ -336,7 +336,7 @@ def get_offene_aufgaben(db: Session = Depends(get_db)) -> Dict[str, Any]:
     # === LEIHRÄDER: RESERVIERUNGEN (noch nicht abgeholt) ===
     reservierungen = db.query(Vermietung).filter(
         and_(
-            Vermietung.status == VermietungStatus.reserviert,
+            Vermietung.status == VermietungStatus.aktiv,
             Vermietung.rad_abgeholt == False
         )
     ).order_by(Vermietung.von_datum.asc()).limit(10).all()
