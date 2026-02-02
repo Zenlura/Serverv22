@@ -3,10 +3,19 @@ Artikel Model - Hauptmodel für Warenwirtschaft
 Artikelnummer: ART-00001, ART-00002, ...
 Bestand: Lager + Werkstatt getrennt
 """
-from sqlalchemy import Column, Integer, String, Numeric, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Numeric, Boolean, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..database import Base
+import enum
+
+
+class ArtikelTyp(str, enum.Enum):
+    """Unterscheidung zwischen Material, Dienstleistung und Werkzeug"""
+    material = "material"              # Physisches Material (Schlauch, Reifen, Kette, ...)
+    dienstleistung = "dienstleistung"  # Arbeitsleistung (Bremsen einstellen, Inspektion, ...)
+    werkzeug = "werkzeug"              # Werkzeuge (nicht verkaufen, nur intern nutzen)
+    sonstiges = "sonstiges"            # Alles andere
 
 
 class Artikel(Base):
@@ -20,6 +29,9 @@ class Artikel(Base):
     # Basis-Infos
     bezeichnung = Column(String(200), nullable=False)
     beschreibung = Column(String(1000))
+    
+    # Artikel-Typ (NEU: Material vs. Dienstleistung)
+    typ = Column(Enum(ArtikelTyp), nullable=False, default=ArtikelTyp.material)
     
     # Kategorie
     kategorie_id = Column(Integer, ForeignKey("kategorien.id"), nullable=True)
@@ -64,5 +76,8 @@ class Artikel(Base):
     
     @property
     def ist_mindestbestand(self) -> bool:
-        """Prüft ob Mindestbestand unterschritten"""
+        """Prüft ob Mindestbestand unterschritten - nur bei Material!"""
+        # Dienstleistungen und Werkzeuge haben keinen Bestand
+        if self.typ in (ArtikelTyp.dienstleistung, ArtikelTyp.werkzeug):
+            return False
         return self.bestand_gesamt <= self.mindestbestand

@@ -33,6 +33,11 @@ class Reparatur(Base):
     status = Column(String(50), nullable=False, default='angenommen', index=True)
     # Status: angenommen, in_arbeit, wartet_auf_teile, fertig, abgeholt, storniert
     
+    # Workflow-Tracking (NEU)
+    begonnen_am = Column(DateTime, nullable=True)  # Wann wurde mit Arbeit begonnen?
+    prioritaet = Column(Integer, default=3)  # 1=sehr dringend, 5=normal
+    meister_zugewiesen = Column(String(100), nullable=True)  # Welcher Meister arbeitet daran?
+    
     # Termine
     reparaturdatum = Column(DateTime, nullable=False, default=func.now())  # Annahme
     fertig_bis = Column(DateTime, nullable=True)  # Geplant fertig

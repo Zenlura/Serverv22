@@ -5,7 +5,8 @@ from datetime import datetime
 import enum
 
 class VermietungStatus(str, enum.Enum):
-    aktiv = "aktiv"
+    reserviert = "reserviert"      # Rad ist reserviert, noch nicht abgeholt
+    aktiv = "aktiv"                # Rad ist unterwegs
     abgeschlossen = "abgeschlossen"
     storniert = "storniert"
 
@@ -29,6 +30,10 @@ class Vermietung(Base):
     von_datum = Column(Date, nullable=False)
     bis_datum = Column(Date, nullable=False)
     rueckgabe_datum = Column(Date)  # Tatsächliche Rückgabe
+    
+    # Reservierung (NEU)
+    rad_abgeholt = Column(Boolean, default=False)  # Wurde das Rad schon ausgegeben?
+    abholzeit = Column(DateTime, nullable=True)  # Wann wurde das Rad abgeholt?
     
     # Preise & Zahlung
     tagespreis = Column(Numeric(10, 2), nullable=False)

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Dashboard from './components/Dashboard'
 import ArtikelListe from './components/ArtikelListe'
 import BestellungenListe from './components/BestellungenListe'
 import ReparaturenListe from './components/ReparaturenListe'
@@ -7,7 +8,7 @@ import VermietungenListe from './components/VermietungenListe'
 import ConnectScreen from './components/ConnectScreen'
 
 function App() {
-  const [activeView, setActiveView] = useState('reparaturen')
+  const [activeView, setActiveView] = useState('dashboard')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -21,6 +22,16 @@ function App() {
         {/* Navigation Tabs */}
         <div className="container mx-auto px-4">
           <div className="flex gap-1 border-b border-blue-500 overflow-x-auto">
+            <button
+              onClick={() => setActiveView('dashboard')}
+              className={`px-6 py-3 font-medium transition whitespace-nowrap ${
+                activeView === 'dashboard'
+                  ? 'bg-white text-blue-600 rounded-t-lg'
+                  : 'text-white hover:bg-blue-500 rounded-t-lg'
+              }`}
+            >
+              📊 Dashboard
+            </button>
             <button
               onClick={() => setActiveView('artikel')}
               className={`px-6 py-3 font-medium transition whitespace-nowrap ${
@@ -87,6 +98,7 @@ function App() {
 
       {/* Main Content */}
       <main className={activeView === 'connect' ? '' : 'container mx-auto px-4 py-8'}>
+        {activeView === 'dashboard' && <Dashboard />}
         {activeView === 'artikel' && <ArtikelListe />}
         {activeView === 'bestellungen' && <BestellungenListe />}
         {activeView === 'reparaturen' && <ReparaturenListe />}
