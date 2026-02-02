@@ -18,7 +18,7 @@ export default function LeihraederListe({ showToast }) {
 
   const loadLeihraeder = async () => {
     try {
-      const res = await fetch('/api/leihraeder/')
+      const res = await fetch('/api/leihraeder')
       const data = await res.json()
       setLeihraeder(data.items || [])
     } catch (error) {
@@ -30,7 +30,7 @@ export default function LeihraederListe({ showToast }) {
 
   const loadVermietungen = async () => {
     try {
-      const res = await fetch('/api/vermietungen/?aktiv=true')
+      const res = await fetch('/api/vermietungen?aktiv=true')
       const data = await res.json()
       setVermietungen(data.items || [])
     } catch (error) {
@@ -271,7 +271,7 @@ function LeihradErstellenModal({ onClose, onSuccess, showToast }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch('/api/leihraeder/', {
+      const res = await fetch('/api/leihraeder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -429,7 +429,7 @@ function VermietungErstellenModal({ leihrad, onClose, onSuccess, showToast }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch('/api/vermietungen/', {
+      const res = await fetch('/api/vermietungen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

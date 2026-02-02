@@ -2,6 +2,8 @@ import { useState } from 'react'
 import ArtikelListe from './components/ArtikelListe'
 import BestellungenListe from './components/BestellungenListe'
 import ReparaturenListe from './components/ReparaturenListe'
+import LeihraederListe from './components/LeihraederListe'
+import VermietungenListe from './components/VermietungenListe'
 import ConnectScreen from './components/ConnectScreen'
 
 function App() {
@@ -13,15 +15,15 @@ function App() {
       <header className="bg-blue-600 text-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold">🚴 Radstation Warenwirtschaft</h1>
-          <p className="text-blue-100 mt-1">Artikel, Bestellungen & Reparaturen</p>
+          <p className="text-blue-100 mt-1">Komplette Verwaltung - Artikel, Bestellungen, Reparaturen & Leihräder</p>
         </div>
         
         {/* Navigation Tabs */}
         <div className="container mx-auto px-4">
-          <div className="flex gap-1 border-b border-blue-500">
+          <div className="flex gap-1 border-b border-blue-500 overflow-x-auto">
             <button
               onClick={() => setActiveView('artikel')}
-              className={`px-6 py-3 font-medium transition ${
+              className={`px-6 py-3 font-medium transition whitespace-nowrap ${
                 activeView === 'artikel'
                   ? 'bg-white text-blue-600 rounded-t-lg'
                   : 'text-white hover:bg-blue-500 rounded-t-lg'
@@ -31,7 +33,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveView('bestellungen')}
-              className={`px-6 py-3 font-medium transition ${
+              className={`px-6 py-3 font-medium transition whitespace-nowrap ${
                 activeView === 'bestellungen'
                   ? 'bg-white text-blue-600 rounded-t-lg'
                   : 'text-white hover:bg-blue-500 rounded-t-lg'
@@ -41,7 +43,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveView('reparaturen')}
-              className={`px-6 py-3 font-medium transition ${
+              className={`px-6 py-3 font-medium transition whitespace-nowrap ${
                 activeView === 'reparaturen'
                   ? 'bg-white text-blue-600 rounded-t-lg'
                   : 'text-white hover:bg-blue-500 rounded-t-lg'
@@ -50,8 +52,28 @@ function App() {
               🔧 Reparaturen
             </button>
             <button
+              onClick={() => setActiveView('leihraeder')}
+              className={`px-6 py-3 font-medium transition whitespace-nowrap ${
+                activeView === 'leihraeder'
+                  ? 'bg-white text-blue-600 rounded-t-lg'
+                  : 'text-white hover:bg-blue-500 rounded-t-lg'
+              }`}
+            >
+              🚲 Leihräder
+            </button>
+            <button
+              onClick={() => setActiveView('vermietungen')}
+              className={`px-6 py-3 font-medium transition whitespace-nowrap ${
+                activeView === 'vermietungen'
+                  ? 'bg-white text-blue-600 rounded-t-lg'
+                  : 'text-white hover:bg-blue-500 rounded-t-lg'
+              }`}
+            >
+              📋 Vermietungen
+            </button>
+            <button
               onClick={() => setActiveView('connect')}
-              className={`px-6 py-3 font-medium transition ${
+              className={`px-6 py-3 font-medium transition whitespace-nowrap ${
                 activeView === 'connect'
                   ? 'bg-white text-blue-600 rounded-t-lg'
                   : 'text-white hover:bg-blue-500 rounded-t-lg'
@@ -68,6 +90,8 @@ function App() {
         {activeView === 'artikel' && <ArtikelListe />}
         {activeView === 'bestellungen' && <BestellungenListe />}
         {activeView === 'reparaturen' && <ReparaturenListe />}
+        {activeView === 'leihraeder' && <LeihraederListe />}
+        {activeView === 'vermietungen' && <VermietungenListe />}
         {activeView === 'connect' && <ConnectScreen />}
       </main>
 
@@ -75,7 +99,7 @@ function App() {
       {activeView !== 'connect' && (
         <footer className="bg-gray-800 text-gray-400 mt-12">
           <div className="container mx-auto px-4 py-4 text-center text-sm">
-            Radstation v2 - Connect Feature - QR-Code Integration
+            Radstation v2 - Vollständige Warenwirtschaft - Netzwerkfähig
           </div>
         </footer>
       )}
