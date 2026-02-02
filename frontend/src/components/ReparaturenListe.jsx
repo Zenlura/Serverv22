@@ -20,7 +20,7 @@ export default function ReparaturenListe() {
   const loadReparaturen = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/reparaturen/')
+      const response = await fetch('/api/reparaturen')
       if (response.ok) {
         const data = await response.json()
         console.log('Geladene Reparaturen:', data)

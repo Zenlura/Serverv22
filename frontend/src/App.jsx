@@ -2,21 +2,10 @@ import { useState } from 'react'
 import ArtikelListe from './components/ArtikelListe'
 import BestellungenListe from './components/BestellungenListe'
 import ReparaturenListe from './components/ReparaturenListe'
-import LeihraederListe from './components/LeihraederListe'
-import VermietungenListe from './components/VermietungenListe'
-import Toast from './components/Toast'
+import ConnectScreen from './components/ConnectScreen'
 
 function App() {
   const [activeView, setActiveView] = useState('reparaturen')
-  const [toasts, setToasts] = useState([])
-
-  const showToast = (message, type = 'success') => {
-    const id = Date.now()
-    setToasts(prev => [...prev, { id, message, type }])
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 3000)
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -24,7 +13,7 @@ function App() {
       <header className="bg-blue-600 text-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold">🚴 Radstation Warenwirtschaft</h1>
-          <p className="text-blue-100 mt-1">Artikel, Bestellungen, Reparaturen & Leihräder</p>
+          <p className="text-blue-100 mt-1">Artikel, Bestellungen & Reparaturen</p>
         </div>
         
         {/* Navigation Tabs */}
@@ -61,51 +50,35 @@ function App() {
               🔧 Reparaturen
             </button>
             <button
-              onClick={() => setActiveView('leihraeder')}
+              onClick={() => setActiveView('connect')}
               className={`px-6 py-3 font-medium transition ${
-                activeView === 'leihraeder'
+                activeView === 'connect'
                   ? 'bg-white text-blue-600 rounded-t-lg'
                   : 'text-white hover:bg-blue-500 rounded-t-lg'
               }`}
             >
-              🚲 Leihräder
-            </button>
-            <button
-              onClick={() => setActiveView('vermietungen')}
-              className={`px-6 py-3 font-medium transition ${
-                activeView === 'vermietungen'
-                  ? 'bg-white text-blue-600 rounded-t-lg'
-                  : 'text-white hover:bg-blue-500 rounded-t-lg'
-              }`}
-            >
-              📅 Vermietungen
+              📱 Connect
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className={activeView === 'connect' ? '' : 'container mx-auto px-4 py-8'}>
         {activeView === 'artikel' && <ArtikelListe />}
         {activeView === 'bestellungen' && <BestellungenListe />}
         {activeView === 'reparaturen' && <ReparaturenListe />}
-        {activeView === 'leihraeder' && <LeihraederListe showToast={showToast} />}
-        {activeView === 'vermietungen' && <VermietungenListe showToast={showToast} />}
+        {activeView === 'connect' && <ConnectScreen />}
       </main>
 
-      {/* Toasts */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map(toast => (
-          <Toast key={toast.id} message={toast.message} type={toast.type} />
-        ))}
-      </div>
-
       {/* Footer */}
-      <footer className="bg-gray-800 text-gray-400 mt-12">
-        <div className="container mx-auto px-4 py-4 text-center text-sm">
-          Radstation v2 - Phase 4 - Leihradverwaltung
-        </div>
-      </footer>
+      {activeView !== 'connect' && (
+        <footer className="bg-gray-800 text-gray-400 mt-12">
+          <div className="container mx-auto px-4 py-4 text-center text-sm">
+            Radstation v2 - Connect Feature - QR-Code Integration
+          </div>
+        </footer>
+      )}
     </div>
   )
 }

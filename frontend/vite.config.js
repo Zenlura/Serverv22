@@ -5,12 +5,14 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0',  // Akzeptiert Verbindungen von allen IPs
+    host: '0.0.0.0',  // WICHTIG: Erlaubt Netzwerk-Zugriff!
     port: 3000,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path
       }
     }
   }

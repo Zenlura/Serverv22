@@ -49,7 +49,7 @@ export default function ReparaturErstellenModal({ onClose, onSuccess }) {
 
       console.log('Sende Reparatur-Daten:', submitData)
 
-      const response = await fetch('/api/reparaturen/', {
+      const response = await fetch('/api/reparaturen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)

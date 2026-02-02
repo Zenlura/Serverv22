@@ -77,7 +77,7 @@ export default function ReparaturBearbeitenModal({ reparatur, onClose, onSuccess
 
   const loadArtikel = async () => {
     try {
-      const response = await fetch('/api/artikel/')
+      const response = await fetch('/api/artikel')
       if (response.ok) {
         const data = await response.json()
         console.log('Geladene Artikel:', data)
@@ -525,7 +525,7 @@ export default function ReparaturBearbeitenModal({ reparatur, onClose, onSuccess
                         <option value="">- Manuell eingeben -</option>
                         {Array.isArray(artikel) && artikel.map(a => (
                           <option key={a.id} value={a.id}>
-                            {a.artikelnummer} - {a.name} ({a.verkaufspreis?.toFixed(2)} €)
+                            {a.artikelnummer} - {a.name} ({(parseFloat(a.verkaufspreis) || 0).toFixed(2)} €)
                           </option>
                         ))}
                       </select>
