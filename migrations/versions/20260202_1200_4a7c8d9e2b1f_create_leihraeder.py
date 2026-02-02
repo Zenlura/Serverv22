@@ -25,7 +25,7 @@ def upgrade():
         sa.Column('modell', sa.String(length=100), nullable=True),
         sa.Column('rahmennummer', sa.String(length=100), nullable=True),
         sa.Column('farbe', sa.String(length=50), nullable=True),
-        sa.Column('rahmenhoeho', sa.String(length=20), nullable=True),
+        sa.Column('rahmenhoehe', sa.String(length=20), nullable=True),
         sa.Column('typ', sa.String(length=50), nullable=True),
         sa.Column('tagespreis', sa.Numeric(precision=10, scale=2), nullable=False, server_default='0'),
         sa.Column('wochenpreis', sa.Numeric(precision=10, scale=2), nullable=True),

@@ -1,584 +1,265 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import LeihraederBulkImport from './LeihraederBulkImport'
+import LeihraederKalender from './LeihraederKalender'
+import VermietungModal from './VermietungModal'
+import Toast from './Toast'
 
-export default function LeihraederListe({ showToast }) {
+function LeihraederListe() {
   const [leihraeder, setLeihraeder] = useState([])
   const [vermietungen, setVermietungen] = useState([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('alle')
-  const [typFilter, setTypFilter] = useState('alle')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showVermietungModal, setShowVermietungModal] = useState(false)
+  const [view, setView] = useState('kalender') // 'kalender' oder 'liste'
+  const [toast, setToast] = useState(null)
   const [selectedLeihrad, setSelectedLeihrad] = useState(null)
+  const [selectedDate, setSelectedDate] = useState(null)
+  const [selectedVermietung, setSelectedVermietung] = useState(null)
 
   useEffect(() => {
-    loadLeihraeder()
-    loadVermietungen()
+    loadData()
   }, [])
 
-  const loadLeihraeder = async () => {
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+  }
+
+  const loadData = async () => {
     try {
-      const res = await fetch('/api/leihraeder')
-      const data = await res.json()
-      setLeihraeder(data.items || [])
-    } catch (error) {
-      showToast('Fehler beim Laden der Leihräder', 'error')
+      setLoading(true)
+      
+      const [leihraderResp, vermietungenResp] = await Promise.all([
+        fetch('/api/leihraeder'),
+        fetch('/api/vermietungen')
+      ])
+
+      if (leihraderResp.ok) {
+        const data = await leihraderResp.json()
+        setLeihraeder(data.items || data || [])
+      }
+
+      if (vermietungenResp.ok) {
+        const data = await vermietungenResp.json()
+        setVermietungen(data.items || data || [])
+      }
+
+    } catch (err) {
+      showToast('Fehler beim Laden: ' + err.message, 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadVermietungen = async () => {
-    try {
-      const res = await fetch('/api/vermietungen?aktiv=true')
-      const data = await res.json()
-      setVermietungen(data.items || [])
-    } catch (error) {
-      console.error('Fehler beim Laden der Vermietungen:', error)
-    }
-  }
-
-  const handleDelete = async (id) => {
-    if (!confirm('Leihrad wirklich löschen?')) return
-    try {
-      const res = await fetch(`/api/leihraeder/${id}`, {
-        method: 'DELETE'
-      })
-      if (res.ok) {
-        showToast('Leihrad gelöscht', 'success')
-        loadLeihraeder()
-      } else {
-        const error = await res.json()
-        showToast(error.detail || 'Fehler beim Löschen', 'error')
-      }
-    } catch (error) {
-      showToast('Fehler beim Löschen', 'error')
-    }
-  }
-
-  const handleStatusChange = async (id, status) => {
-    try {
-      const res = await fetch(`/api/leihraeder/${id}/status?status=${status}`, {
-        method: 'PATCH'
-      })
-      if (res.ok) {
-        showToast('Status geändert', 'success')
-        loadLeihraeder()
-      }
-    } catch (error) {
-      showToast('Fehler beim Ändern', 'error')
-    }
-  }
-
-  const handleVermieten = (leihrad) => {
+  const handleDateClick = (leihrad, date) => {
     setSelectedLeihrad(leihrad)
-    setShowVermietungModal(true)
+    setSelectedDate(date)
   }
 
-  const filteredLeihraeder = leihraeder.filter(rad => {
-    const matchesStatus = statusFilter === 'alle' || rad.status === statusFilter
-    const matchesTyp = typFilter === 'alle' || rad.typ === typFilter
-    const matchesSearch = searchTerm === '' ||
-      rad.inventarnummer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rad.marke.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (rad.modell && rad.modell.toLowerCase().includes(searchTerm.toLowerCase()))
-    return matchesStatus && matchesTyp && matchesSearch
-  })
-
-  const statusColors = {
-    verfuegbar: 'bg-green-100 text-green-800',
-    verliehen: 'bg-yellow-100 text-yellow-800',
-    wartung: 'bg-orange-100 text-orange-800',
-    defekt: 'bg-red-100 text-red-800'
+  const handleVermietungClick = (vermietung) => {
+    setSelectedVermietung(vermietung)
+    showToast('Vermietungs-Details in Entwicklung', 'info')
   }
 
-  const statusLabels = {
-    verfuegbar: 'Verfügbar',
-    verliehen: 'Verliehen',
-    wartung: 'Wartung',
-    defekt: 'Defekt'
+  const handleVermietungSave = () => {
+    setSelectedLeihrad(null)
+    setSelectedDate(null)
+    loadData()
   }
 
-  if (loading) return <div className="p-8 text-center">Laden...</div>
+  const getStatistik = () => {
+    const verfuegbar = leihraeder.filter(l => l.status === 'verfuegbar').length
+    const verliehen = leihraeder.filter(l => l.status === 'verliehen').length
+    const wartung = leihraeder.filter(l => l.status === 'wartung').length
+    const aktiveVermietungen = vermietungen.filter(v => v.status === 'aktiv' || v.status === 'reserviert').length
+
+    return { verfuegbar, verliehen, wartung, aktiveVermietungen }
+  }
+
+  const stats = getStatistik()
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Lade Leihräder...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">Leihräder</h1>
-          <p className="text-gray-600 mt-1">{filteredLeihraeder.length} von {leihraeder.length} Rädern</p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          + Neues Leihrad
-        </button>
-      </div>
-
-      {/* Filter */}
-      <div className="mb-4 flex gap-4 items-center bg-white p-4 rounded shadow">
-        <input
-          type="text"
-          placeholder="Suche nach Inventarnr., Marke, Modell..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-3 py-2 border rounded"
-        />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="alle">Alle Status</option>
-          <option value="verfuegbar">Verfügbar</option>
-          <option value="verliehen">Verliehen</option>
-          <option value="wartung">Wartung</option>
-          <option value="defekt">Defekt</option>
-        </select>
-        <select
-          value={typFilter}
-          onChange={(e) => setTypFilter(e.target.value)}
-          className="px-3 py-2 border rounded"
-        >
-          <option value="alle">Alle Typen</option>
-          <option value="Citybike">Citybike</option>
-          <option value="E-Bike">E-Bike</option>
-          <option value="MTB">MTB</option>
-          <option value="Trekking">Trekking</option>
-        </select>
-      </div>
-
-      {/* Tabelle */}
-      <div className="bg-white rounded shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Inventar-Nr.</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Fahrrad</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Typ</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Größe</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Preis/Tag</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
-              <th className="px-4 py-3 text-right text-sm font-semibold">Aktionen</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {filteredLeihraeder.map(rad => (
-              <tr key={rad.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-sm">{rad.inventarnummer}</td>
-                <td className="px-4 py-3">
-                  <div className="font-medium">{rad.marke}</div>
-                  {rad.modell && <div className="text-sm text-gray-500">{rad.modell}</div>}
-                </td>
-                <td className="px-4 py-3 text-sm">{rad.typ || '-'}</td>
-                <td className="px-4 py-3 text-sm">{rad.rahmenhoeho || '-'}</td>
-                <td className="px-4 py-3 font-semibold">{parseFloat(rad.tagespreis).toFixed(2)} €</td>
-                <td className="px-4 py-3">
-                  <select
-                    value={rad.status}
-                    onChange={(e) => handleStatusChange(rad.id, e.target.value)}
-                    className={`px-2 py-1 rounded text-sm font-medium ${statusColors[rad.status]}`}
-                  >
-                    <option value="verfuegbar">Verfügbar</option>
-                    <option value="verliehen">Verliehen</option>
-                    <option value="wartung">Wartung</option>
-                    <option value="defekt">Defekt</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    {rad.status === 'verfuegbar' && (
-                      <button
-                        onClick={() => handleVermieten(rad)}
-                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                      >
-                        Vermieten
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(rad.id)}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                    >
-                      Löschen
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filteredLeihraeder.length === 0 && (
-          <div className="p-8 text-center text-gray-500">
-            Keine Leihräder gefunden
+    <div className="space-y-6">
+      {/* Header mit Statistik */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">🚲 Leihräder Verwaltung</h1>
+            <p className="text-gray-600 mt-1">Übersicht und Kalender für alle Leihräder</p>
           </div>
-        )}
+          <button
+            onClick={loadData}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            🔄 Aktualisieren
+          </button>
+        </div>
+
+        {/* Statistik Karten */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+            <div className="text-sm text-blue-700 font-medium">Gesamt</div>
+            <div className="text-3xl font-bold text-blue-900 mt-1">{leihraeder.length}</div>
+            <div className="text-xs text-blue-600 mt-1">Leihräder</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+            <div className="text-sm text-green-700 font-medium">Verfügbar</div>
+            <div className="text-3xl font-bold text-green-900 mt-1">{stats.verfuegbar}</div>
+            <div className="text-xs text-green-600 mt-1">Bereit zum Verleih</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
+            <div className="text-sm text-red-700 font-medium">Verliehen</div>
+            <div className="text-3xl font-bold text-red-900 mt-1">{stats.verliehen}</div>
+            <div className="text-xs text-red-600 mt-1">Aktuell unterwegs</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4 border border-yellow-200">
+            <div className="text-sm text-yellow-700 font-medium">Wartung</div>
+            <div className="text-3xl font-bold text-yellow-900 mt-1">{stats.wartung}</div>
+            <div className="text-xs text-yellow-600 mt-1">In Bearbeitung</div>
+          </div>
+        </div>
+
+        {/* View Toggle */}
+        <div className="flex gap-2 mt-6 border-t pt-6">
+          <button
+            onClick={() => setView('kalender')}
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
+              view === 'kalender'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            📅 Kalenderansicht
+          </button>
+          <button
+            onClick={() => setView('liste')}
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
+              view === 'liste'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            📋 Listenansicht
+          </button>
+        </div>
       </div>
 
-      {/* Modals */}
-      {showCreateModal && (
-        <LeihradErstellenModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false)
-            loadLeihraeder()
-            showToast('Leihrad erstellt', 'success')
-          }}
-          showToast={showToast}
+      {/* Bulk Import wenn keine Räder vorhanden */}
+      {leihraeder.length === 0 && (
+        <LeihraederBulkImport onImportComplete={loadData} />
+      )}
+
+      {/* Kalender View */}
+      {view === 'kalender' && (
+        <LeihraederKalender
+          leihraeder={leihraeder}
+          vermietungen={vermietungen}
+          onVermietungClick={handleVermietungClick}
+          onDateClick={handleDateClick}
         />
       )}
 
-      {showVermietungModal && selectedLeihrad && (
-        <VermietungErstellenModal
+      {/* Listen View */}
+      {view === 'liste' && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inventar-Nr</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marke/Modell</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rahmennummer</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preis</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kontrolle</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {leihraeder.map(leihrad => (
+                  <tr key={leihrad.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                      {leihrad.inventarnummer}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        leihrad.typ === 'E-Bike' ? 'bg-purple-100 text-purple-800' :
+                        leihrad.typ === 'Normal' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {leihrad.typ}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {leihrad.marke} {leihrad.modell}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {leihrad.rahmennummer || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded font-medium ${
+                        leihrad.status === 'verfuegbar' ? 'bg-green-100 text-green-800' :
+                        leihrad.status === 'verliehen' ? 'bg-red-100 text-red-800' :
+                        leihrad.status === 'wartung' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {leihrad.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {leihrad.preis_1tag}€/Tag
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        leihrad.kontrollstatus === 'ok' ? 'bg-green-100 text-green-800' :
+                        leihrad.kontrollstatus === 'faellig' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {leihrad.kontrollstatus || 'ok'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Vermietung Modal */}
+      {selectedLeihrad && (
+        <VermietungModal
           leihrad={selectedLeihrad}
+          vorauswahl={selectedDate}
           onClose={() => {
-            setShowVermietungModal(false)
             setSelectedLeihrad(null)
+            setSelectedDate(null)
           }}
-          onSuccess={() => {
-            setShowVermietungModal(false)
-            setSelectedLeihrad(null)
-            loadLeihraeder()
-            loadVermietungen()
-            showToast('Vermietung erstellt', 'success')
-          }}
-          showToast={showToast}
+          onSave={handleVermietungSave}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
     </div>
   )
 }
 
-// ========== LEIHRAD ERSTELLEN MODAL ==========
-function LeihradErstellenModal({ onClose, onSuccess, showToast }) {
-  const [formData, setFormData] = useState({
-    inventarnummer: '',
-    marke: '',
-    modell: '',
-    rahmennummer: '',
-    farbe: '',
-    rahmenhoeho: '',
-    typ: 'Citybike',
-    tagespreis: '15.00',
-    wochenpreis: '80.00',
-    kaution: '50.00',
-    status: 'verfuegbar',
-    zustand: '',
-    notizen: ''
-  })
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    try {
-      const res = await fetch('/api/leihraeder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-      if (res.ok) {
-        onSuccess()
-      } else {
-        const error = await res.json()
-        showToast(error.detail || 'Fehler beim Erstellen', 'error')
-      }
-    } catch (error) {
-      showToast('Fehler beim Erstellen', 'error')
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-4">Neues Leihrad</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Inventarnummer *</label>
-              <input
-                type="text"
-                required
-                value={formData.inventarnummer}
-                onChange={(e) => setFormData({...formData, inventarnummer: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Marke *</label>
-              <input
-                type="text"
-                required
-                value={formData.marke}
-                onChange={(e) => setFormData({...formData, marke: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Modell</label>
-              <input
-                type="text"
-                value={formData.modell}
-                onChange={(e) => setFormData({...formData, modell: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Typ</label>
-              <select
-                value={formData.typ}
-                onChange={(e) => setFormData({...formData, typ: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              >
-                <option value="Citybike">Citybike</option>
-                <option value="E-Bike">E-Bike</option>
-                <option value="MTB">MTB</option>
-                <option value="Trekking">Trekking</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Rahmenhöhe</label>
-              <input
-                type="text"
-                placeholder="z.B. M, L, 54cm"
-                value={formData.rahmenhoeho}
-                onChange={(e) => setFormData({...formData, rahmenhoeho: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Farbe</label>
-              <input
-                type="text"
-                value={formData.farbe}
-                onChange={(e) => setFormData({...formData, farbe: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Tagespreis (€)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.tagespreis}
-                onChange={(e) => setFormData({...formData, tagespreis: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Kaution (€)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.kaution}
-                onChange={(e) => setFormData({...formData, kaution: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Erstellen
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ========== VERMIETUNG ERSTELLEN MODAL ==========
-function VermietungErstellenModal({ leihrad, onClose, onSuccess, showToast }) {
-  const today = new Date().toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-  
-  const [formData, setFormData] = useState({
-    leihrad_id: leihrad.id,
-    kunde_name: '',
-    kunde_telefon: '',
-    kunde_email: '',
-    ausweis_typ: 'Personalausweis',
-    ausweis_nummer: '',
-    von_datum: today,
-    bis_datum: tomorrow,
-    tagespreis: leihrad.tagespreis,
-    anzahl_tage: 1,
-    gesamtpreis: leihrad.tagespreis,
-    kaution: leihrad.kaution,
-    zustand_bei_ausgabe: 'Gut',
-    notizen: ''
-  })
-
-  useEffect(() => {
-    const von = new Date(formData.von_datum)
-    const bis = new Date(formData.bis_datum)
-    const tage = Math.max(1, Math.ceil((bis - von) / 86400000) + 1)
-    const gesamt = (parseFloat(formData.tagespreis) * tage).toFixed(2)
-    setFormData(prev => ({...prev, anzahl_tage: tage, gesamtpreis: gesamt}))
-  }, [formData.von_datum, formData.bis_datum, formData.tagespreis])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    try {
-      const res = await fetch('/api/vermietungen', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-      if (res.ok) {
-        onSuccess()
-      } else {
-        const error = await res.json()
-        showToast(error.detail || 'Fehler beim Erstellen', 'error')
-      }
-    } catch (error) {
-      showToast('Fehler beim Erstellen', 'error')
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-4">Vermietung erstellen</h2>
-        <div className="mb-4 p-3 bg-blue-50 rounded">
-          <div className="font-semibold">{leihrad.marke} {leihrad.modell}</div>
-          <div className="text-sm text-gray-600">Inventar-Nr.: {leihrad.inventarnummer}</div>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1">Kundenname *</label>
-              <input
-                type="text"
-                required
-                value={formData.kunde_name}
-                onChange={(e) => setFormData({...formData, kunde_name: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Telefon</label>
-              <input
-                type="tel"
-                value={formData.kunde_telefon}
-                onChange={(e) => setFormData({...formData, kunde_telefon: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">E-Mail</label>
-              <input
-                type="email"
-                value={formData.kunde_email}
-                onChange={(e) => setFormData({...formData, kunde_email: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Ausweistyp</label>
-              <select
-                value={formData.ausweis_typ}
-                onChange={(e) => setFormData({...formData, ausweis_typ: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              >
-                <option>Personalausweis</option>
-                <option>Reisepass</option>
-                <option>Führerschein</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Ausweisnummer</label>
-              <input
-                type="text"
-                value={formData.ausweis_nummer}
-                onChange={(e) => setFormData({...formData, ausweis_nummer: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Von *</label>
-              <input
-                type="date"
-                required
-                value={formData.von_datum}
-                onChange={(e) => setFormData({...formData, von_datum: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Bis *</label>
-              <input
-                type="date"
-                required
-                value={formData.bis_datum}
-                onChange={(e) => setFormData({...formData, bis_datum: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Anzahl Tage</label>
-              <input
-                type="number"
-                disabled
-                value={formData.anzahl_tage}
-                className="w-full px-3 py-2 border rounded bg-gray-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Gesamtpreis (€)</label>
-              <input
-                type="text"
-                disabled
-                value={formData.gesamtpreis}
-                className="w-full px-3 py-2 border rounded bg-gray-50 font-semibold"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Kaution (€)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.kaution}
-                onChange={(e) => setFormData({...formData, kaution: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Zustand</label>
-              <input
-                type="text"
-                value={formData.zustand_bei_ausgabe}
-                onChange={(e) => setFormData({...formData, zustand_bei_ausgabe: e.target.value})}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Vermietung starten
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
+export default LeihraederListe

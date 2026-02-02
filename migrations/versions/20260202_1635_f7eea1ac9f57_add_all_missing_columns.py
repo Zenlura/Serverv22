@@ -1,8 +1,8 @@
 """add_all_missing_columns
 
-Revision ID: [wird automatisch generiert]
+Revision ID: f7eea1ac9f57
 Revises: b5ea4ffd06eb
-Create Date: [wird automatisch generiert]
+Create Date: 2026-02-02 16:35:00
 """
 from typing import Sequence, Union
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '[wird automatisch generiert]'
+revision: str = 'f7eea1ac9f57'
 down_revision: Union[str, None] = 'b5ea4ffd06eb'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

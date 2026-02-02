@@ -80,16 +80,58 @@ function ArtikelDetailsModal({ artikel, onClose, onSave }) {
     try {
       setSaving(true)
       
+      // Nur die Felder schicken, die das Backend akzeptiert
+      const allowedFields = [
+        'artikelnummer',
+        'bezeichnung', 
+        'beschreibung',
+        'typ',
+        'kategorie_id',
+        'bestand_lager',
+        'bestand_werkstatt',
+        'mindestbestand',
+        'einkaufspreis',
+        'verkaufspreis',
+        'einheit',
+        'lagerort',
+        'aktiv',
+        'notizen'
+      ]
+      
+      const dataToSend = {}
+      allowedFields.forEach(field => {
+        if (formData[field] !== undefined) {
+          // kategorie_id speziell behandeln (kann null sein)
+          if (field === 'kategorie_id') {
+            const value = formData[field]
+            dataToSend[field] = (value === '' || value === null) ? null : parseInt(value)
+          }
+          // Andere Integer-Felder (dürfen nicht null sein)
+          else if (['bestand_lager', 'bestand_werkstatt', 'mindestbestand'].includes(field)) {
+            dataToSend[field] = parseInt(formData[field]) || 0
+          }
+          // Float-Felder konvertieren  
+          else if (field === 'einkaufspreis' || field === 'verkaufspreis') {
+            dataToSend[field] = parseFloat(formData[field]) || 0
+          }
+          // Rest wie gehabt
+          else {
+            dataToSend[field] = formData[field]
+          }
+        }
+      })
+      
       const response = await fetch(`/api/artikel/${artikel.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(dataToSend)
       })
 
       if (!response.ok) {
-        throw new Error(`Fehler beim Speichern: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `Fehler beim Speichern: ${response.status}`)
       }
 
       const updatedArtikel = await response.json()
@@ -340,6 +382,29 @@ function ArtikelDetailsModal({ artikel, onClose, onSave }) {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Artikel-Typ */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Artikel-Typ *
+                    </label>
+                    <select
+                      value={formData.typ || 'material'}
+                      onChange={(e) => handleChange('typ', e.target.value)}
+                      disabled={!editMode}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
+                        editMode ? 'bg-white focus:ring-2 focus:ring-blue-500' : 'bg-gray-50'
+                      }`}
+                    >
+                      <option value="material">🔩 Material (Schläuche, Reifen, Teile, ...)</option>
+                      <option value="dienstleistung">⚙️ Dienstleistung (Arbeitszeit, Service, ...)</option>
+                      <option value="werkzeug">🔧 Werkzeug (nur intern)</option>
+                      <option value="sonstiges">📦 Sonstiges</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 Nur "Material" wird in Bestandswarnungen angezeigt
+                    </p>
                   </div>
 
                   {/* Preise */}

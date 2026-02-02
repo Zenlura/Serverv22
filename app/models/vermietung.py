@@ -35,12 +35,10 @@ class Vermietung(Base):
     rad_abgeholt = Column(Boolean, default=False)  # Wurde das Rad schon ausgegeben?
     abholzeit = Column(DateTime, nullable=True)  # Wann wurde das Rad abgeholt?
     
-    # Preise & Zahlung
+    # Preise & Zahlung (Bezahlung bei Abholung, keine Kaution)
     tagespreis = Column(Numeric(10, 2), nullable=False)
     anzahl_tage = Column(Integer, nullable=False)
     gesamtpreis = Column(Numeric(10, 2), nullable=False)
-    kaution = Column(Numeric(10, 2), nullable=False)
-    kaution_zurueck = Column(Boolean, default=False)
     bezahlt = Column(Boolean, default=False)
     bezahlt_am = Column(DateTime)
     

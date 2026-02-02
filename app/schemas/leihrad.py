@@ -11,7 +11,7 @@ class LeihradBase(BaseModel):
     modell: Optional[str] = Field(None, max_length=100)
     rahmennummer: Optional[str] = Field(None, max_length=100)
     farbe: Optional[str] = Field(None, max_length=50)
-    rahmenhoeho: Optional[str] = Field(None, max_length=20)
+    rahmenhoehe: Optional[str] = Field(None, max_length=20)
     typ: Optional[str] = Field(None, max_length=50)
     
     tagespreis: Decimal = Field(default=Decimal("0"))

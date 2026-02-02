@@ -10,25 +10,31 @@ class LeihradStatus(str, enum.Enum):
     wartung = "wartung"
     defekt = "defekt"
 
+class Kontrollstatus(str, enum.Enum):
+    ok = "ok"
+    faellig = "faellig"
+    ueberfaellig = "ueberfaellig"
+
 class Leihrad(Base):
     __tablename__ = "leihraeder"
 
     id = Column(Integer, primary_key=True, index=True)
     inventarnummer = Column(String(50), unique=True, nullable=False, index=True)
+    rahmennummer = Column(String(100))
     marke = Column(String(100), nullable=False)
     modell = Column(String(100))
-    rahmennummer = Column(String(100))
     farbe = Column(String(50))
-    rahmenhoeho = Column(String(20))  # z.B. "M", "L", "54cm"
-    typ = Column(String(50))  # z.B. "Citybike", "E-Bike", "MTB"
+    rahmenhoehe = Column(String(20))  # z.B. "M", "L", "54cm"
+    typ = Column(String(50))  # z.B. "Citybike", "E-Bike", "MTB", "Normal", "Werkstatt"
     
-    # Preise
-    tagespreis = Column(Numeric(10, 2), nullable=False, default=0)
-    wochenpreis = Column(Numeric(10, 2))
-    kaution = Column(Numeric(10, 2), default=50.00)
+    # Staffelpreise (für E-Bikes)
+    preis_1tag = Column(Numeric(10, 2), nullable=False, default=25.00)
+    preis_3tage = Column(Numeric(10, 2), default=22.00)  # Pro Tag ab 3 Tagen
+    preis_5tage = Column(Numeric(10, 2), default=20.00)  # Pro Tag ab 5 Tagen
     
     # Status & Zustand
     status = Column(Enum(LeihradStatus), nullable=False, default=LeihradStatus.verfuegbar)
+    kontrollstatus = Column(Enum(Kontrollstatus), default=Kontrollstatus.ok)
     zustand = Column(Text)  # Notizen zu Zustand/Mängeln
     
     # Metadaten

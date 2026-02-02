@@ -54,6 +54,7 @@ class ArtikelBase(BaseModel):
     artikelnummer: str = Field(..., min_length=1, max_length=50)
     bezeichnung: str = Field(..., min_length=1, max_length=200)
     beschreibung: Optional[str] = None
+    typ: str = Field(default="material", pattern="^(material|dienstleistung|werkzeug|sonstiges)$")
     kategorie_id: Optional[int] = None
     
     # Bestand
@@ -79,6 +80,7 @@ class ArtikelUpdate(BaseModel):
     artikelnummer: Optional[str] = Field(None, min_length=1, max_length=50)
     bezeichnung: Optional[str] = Field(None, min_length=1, max_length=200)
     beschreibung: Optional[str] = None
+    typ: Optional[str] = Field(None, pattern="^(material|dienstleistung|werkzeug|sonstiges)$")
     kategorie_id: Optional[int] = None
     
     bestand_lager: Optional[int] = Field(None, ge=0)

@@ -273,45 +273,56 @@ function OpenTasksList({ tasks }) {
           </div>
         )}
 
-        {/* 📦 RESERVIERUNGEN */}
+        {/* 📅 RESERVIERUNGEN - BALD ANSTEHEND */}
         {tasks.reservierungen?.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-purple-600 text-xl">📦</span>
-              <h3 className="text-sm font-bold text-purple-700 uppercase">
-                Reservierungen ({tasks.reservierungen.length})
+              <span className="text-blue-500 text-xl">📅</span>
+              <h3 className="text-sm font-bold text-blue-600 uppercase">
+                Bald anstehend ({tasks.reservierungen.length})
               </h3>
             </div>
             <div className="space-y-2">
-              {tasks.reservierungen.slice(0, 5).map((res) => (
-                <div key={res.id} className={`p-3 rounded-lg border-l-4 hover:opacity-90 transition cursor-pointer ${
-                  res.abholung_heute 
-                    ? 'bg-purple-100 border-purple-600' 
-                    : 'bg-purple-50 border-purple-400'
-                }`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm text-gray-900">
-                        {res.inventarnummer || `Leihrad #${res.leihrad_id}`}
-                      </div>
-                      <div className="text-xs text-gray-700">
-                        👤 {res.kunde_name}
-                      </div>
-                    </div>
-                    <div className="text-right ml-2">
-                      {res.abholung_heute ? (
-                        <div className="text-xs font-bold text-purple-700">
-                          Heute abholen!
+              {tasks.reservierungen.slice(0, 5).map((res) => {
+                const vonDatum = new Date(res.von_datum)
+                const heute = new Date()
+                heute.setHours(0, 0, 0, 0)
+                const differenzTage = Math.ceil((vonDatum - heute) / (1000 * 60 * 60 * 24))
+                
+                return (
+                  <div key={res.id} className={`p-3 rounded-lg border-l-4 hover:opacity-90 transition cursor-pointer ${
+                    res.abholung_heute 
+                      ? 'bg-blue-100 border-blue-600' 
+                      : 'bg-blue-50 border-blue-400'
+                  }`}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm text-gray-900">
+                          {res.inventarnummer || `Leihrad #${res.leihrad_id}`}
                         </div>
-                      ) : (
-                        <div className="text-xs text-purple-600">
-                          ab {new Date(res.von_datum).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                        <div className="text-xs text-gray-700">
+                          👤 {res.kunde_name}
                         </div>
-                      )}
+                      </div>
+                      <div className="text-right ml-2">
+                        {res.abholung_heute ? (
+                          <div className="text-xs font-bold text-blue-700">
+                            Heute bereit
+                          </div>
+                        ) : differenzTage === 1 ? (
+                          <div className="text-xs font-medium text-blue-600">
+                            Morgen
+                          </div>
+                        ) : (
+                          <div className="text-xs text-blue-600">
+                            in {differenzTage} Tagen
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}

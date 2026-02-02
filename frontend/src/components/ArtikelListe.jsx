@@ -11,6 +11,12 @@ function ArtikelListe() {
   const [selectedArtikel, setSelectedArtikel] = useState(null)
   const [bestellArtikel, setBestellArtikel] = useState(null)
   const [toast, setToast] = useState(null)
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [pageSize] = useState(25) // 25 Artikel pro Seite
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -20,20 +26,35 @@ function ArtikelListe() {
   // Artikel von API laden
   useEffect(() => {
     fetchArtikel()
-  }, [])
+  }, [currentPage, searchTerm]) // Reagiere auf Seiten- und Suchwechsel
 
   const fetchArtikel = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/artikel')
+      
+      // Build URL mit Pagination und Suche
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        page_size: pageSize.toString(),
+        nur_aktive: 'false' // Alle Artikel anzeigen (auch inaktive)
+      })
+      
+      if (searchTerm) {
+        params.append('suche', searchTerm)
+      }
+      
+      const response = await fetch(`/api/artikel?${params}`)
       
       if (!response.ok) {
         throw new Error(`HTTP Error: ${response.status}`)
       }
       
       const data = await response.json()
-      // API gibt {items: [...], total: ..., ...} zurück
-      setArtikel(data.items || data || [])
+      
+      // API gibt {items: [...], total: ..., pages: ...} zurück
+      setArtikel(data.items || [])
+      setTotalItems(data.total || 0)
+      setTotalPages(data.pages || 1)
       setError(null)
     } catch (err) {
       setError('Fehler beim Laden der Artikel: ' + err.message)
@@ -43,11 +64,11 @@ function ArtikelListe() {
     }
   }
 
-  // Artikel filtern nach Suchbegriff
-  const gefiltert = artikel.filter(a => 
-    a.artikelnummer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.bezeichnung.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Suche Handler (mit Verzögerung)
+  const handleSearchChange = (value) => {
+    setSearchTerm(value)
+    setCurrentPage(1) // Zurück zu Seite 1 bei neuer Suche
+  }
 
   // Bestand berechnen (Lager + Werkstatt)
   const getBestand = (artikel) => {
@@ -132,7 +153,7 @@ function ArtikelListe() {
           <div>
             <h2 className="text-2xl font-bold text-gray-800">Artikelübersicht</h2>
             <p className="text-gray-600 text-sm mt-1">
-              {artikel.length} Artikel insgesamt
+              {totalItems} Artikel insgesamt · Seite {currentPage} von {totalPages}
             </p>
           </div>
           
@@ -142,10 +163,18 @@ function ArtikelListe() {
               type="text"
               placeholder="Suche nach Nummer oder Bezeichnung..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full md:w-80 px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+            {searchTerm && (
+              <button
+                onClick={() => handleSearchChange('')}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -161,6 +190,9 @@ function ArtikelListe() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Bezeichnung
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Typ
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Bestand
@@ -180,93 +212,196 @@ function ArtikelListe() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {gefiltert.length === 0 ? (
+              {artikel.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
                     {searchTerm ? 'Keine Artikel gefunden' : 'Keine Artikel vorhanden'}
                   </td>
                 </tr>
               ) : (
-                gefiltert.map((artikel) => (
-                  <tr 
-                    key={artikel.id}
-                    className="hover:bg-gray-50 transition"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-mono text-sm font-medium text-gray-900">
-                        {artikel.artikelnummer}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{artikel.bezeichnung}</div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                        getBestand(artikel) > 10 
-                          ? 'bg-green-100 text-green-800'
-                          : getBestand(artikel) > 0
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {getBestand(artikel)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-900">
-                      {formatPreis(artikel.einkaufspreis)}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                      {formatPreis(artikel.verkaufspreis)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {artikel.lieferanten && artikel.lieferanten.length > 0 
-                        ? artikel.lieferanten.find(l => l.bevorzugt)?.lieferant?.name || artikel.lieferanten[0]?.lieferant?.name || '-'
-                        : '-'
-                      }
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          className="text-blue-600 hover:text-blue-800 font-medium transition"
-                          onClick={() => handleArtikelClick(artikel)}
-                        >
-                          📝
-                        </button>
-                        <button
-                          className={`px-3 py-1 rounded-lg font-medium transition ${
-                            getBestand(artikel) <= (artikel.mindestbestand || 0)
-                              ? 'bg-orange-600 text-white hover:bg-orange-700'
-                              : 'bg-green-600 text-white hover:bg-green-700'
-                          }`}
-                          onClick={() => handleNachbestellen(artikel)}
-                          title="Artikel nachbestellen"
-                        >
-                          📦 Nachbestellen
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                artikel.map((art) => {
+                  // Typ-Badge-Konfiguration
+                  const typConfig = {
+                    material: { emoji: '🔩', text: 'Material', color: 'bg-blue-100 text-blue-800' },
+                    dienstleistung: { emoji: '⚙️', text: 'Service', color: 'bg-purple-100 text-purple-800' },
+                    werkzeug: { emoji: '🔧', text: 'Werkzeug', color: 'bg-gray-100 text-gray-800' },
+                    sonstiges: { emoji: '📦', text: 'Sonstiges', color: 'bg-gray-100 text-gray-600' }
+                  }
+                  const typ = typConfig[art.typ] || typConfig.material
+                  
+                  return (
+                    <tr 
+                      key={art.id}
+                      className="hover:bg-gray-50 transition"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="font-mono text-sm font-medium text-gray-900">
+                          {art.artikelnummer}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{art.bezeichnung}</div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${typ.color}`}>
+                          <span>{typ.emoji}</span>
+                          <span>{typ.text}</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                          getBestand(art) > 10 
+                            ? 'bg-green-100 text-green-800'
+                            : getBestand(art) > 0
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {getBestand(art)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        {formatPreis(art.einkaufspreis)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                        {formatPreis(art.verkaufspreis)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {art.lieferanten && art.lieferanten.length > 0 
+                          ? art.lieferanten.find(l => l.bevorzugt)?.lieferant?.name || art.lieferanten[0]?.lieferant?.name || '-'
+                          : '-'
+                        }
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            className="text-blue-600 hover:text-blue-800 font-medium transition"
+                            onClick={() => handleArtikelClick(art)}
+                          >
+                            📝
+                          </button>
+                          <button
+                            className={`px-3 py-1 rounded-lg font-medium transition ${
+                              getBestand(art) <= (art.mindestbestand || 0)
+                                ? 'bg-orange-600 text-white hover:bg-orange-700'
+                                : 'bg-green-600 text-white hover:bg-green-700'
+                            }`}
+                            onClick={() => handleNachbestellen(art)}
+                            title="Artikel nachbestellen"
+                          >
+                            📦 Nachbestellen
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
 
+      {/* Pagination */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Info */}
+          <div className="text-sm text-gray-600">
+            Zeige {artikel.length > 0 ? ((currentPage - 1) * pageSize + 1) : 0} - {Math.min(currentPage * pageSize, totalItems)} von {totalItems} Artikeln
+          </div>
+          
+          {/* Navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 rounded ${
+                currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+            >
+              ««
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 rounded ${
+                currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+            >
+              ‹ Zurück
+            </button>
+            
+            {/* Seiten-Nummern */}
+            <div className="flex gap-1">
+              {[...Array(totalPages)].map((_, i) => {
+                const pageNum = i + 1
+                // Zeige nur bestimmte Seiten (erste, letzte, aktuelle +/- 2)
+                if (
+                  pageNum === 1 ||
+                  pageNum === totalPages ||
+                  (pageNum >= currentPage - 2 && pageNum <= currentPage + 2)
+                ) {
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1 rounded ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                } else if (
+                  pageNum === currentPage - 3 ||
+                  pageNum === currentPage + 3
+                ) {
+                  return <span key={pageNum} className="px-2 text-gray-400">...</span>
+                }
+                return null
+              })}
+            </div>
+            
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 rounded ${
+                currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+            >
+              Weiter ›
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 rounded ${
+                currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+            >
+              »»
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Statistik Footer */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Gesamt Artikel</div>
-          <div className="text-2xl font-bold text-gray-900">{artikel.length}</div>
+          <div className="text-2xl font-bold text-gray-900">{totalItems}</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600">Gefiltert</div>
-          <div className="text-2xl font-bold text-blue-600">{gefiltert.length}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600">Gesamt Bestand</div>
-          <div className="text-2xl font-bold text-green-600">
-            {artikel.reduce((sum, a) => sum + getBestand(a), 0)}
-          </div>
+          <div className="text-sm text-gray-600">Auf dieser Seite</div>
+          <div className="text-2xl font-bold text-blue-600">{artikel.length}</div>
         </div>
       </div>
 
