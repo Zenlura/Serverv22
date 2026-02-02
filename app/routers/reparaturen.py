@@ -3,13 +3,14 @@ Reparaturen API Endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
 from app.database import get_db
 from app.models.reparatur import Reparatur, ReparaturPosition
+from app.models.artikel import Artikel
 from app.schemas.reparatur import (
     ReparaturCreate,
     ReparaturUpdate,
@@ -166,7 +167,11 @@ def get_reparatur(
     db: Session = Depends(get_db)
 ):
     """Einzelne Reparatur mit allen Details"""
-    reparatur = db.query(Reparatur).filter(Reparatur.id == reparatur_id).first()
+    # WICHTIG: joinedload lädt Positionen mit (Eager Loading)
+    reparatur = db.query(Reparatur)\
+        .options(joinedload(Reparatur.positionen))\
+        .filter(Reparatur.id == reparatur_id)\
+        .first()
     
     if not reparatur:
         raise HTTPException(status_code=404, detail="Reparatur nicht gefunden")
@@ -262,6 +267,38 @@ def add_position(
     if not db_reparatur:
         raise HTTPException(status_code=404, detail="Reparatur nicht gefunden")
     
+    # Wenn Ersatzteil mit Artikel-ID: Bestand prüfen & reduzieren
+    if position.typ == 'teil' and position.artikel_id:
+        artikel = db.query(Artikel).filter(Artikel.id == position.artikel_id).first()
+        
+        if not artikel:
+            raise HTTPException(status_code=404, detail=f"Artikel mit ID {position.artikel_id} nicht gefunden")
+        
+        # Bestand prüfen (Werkstatt hat Priorität)
+        verfuegbar_werkstatt = artikel.bestand_werkstatt or 0
+        verfuegbar_lager = artikel.bestand_lager or 0
+        verfuegbar_gesamt = verfuegbar_werkstatt + verfuegbar_lager
+        
+        if verfuegbar_gesamt < position.menge:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nicht genügend Bestand! Verfügbar: {verfuegbar_gesamt} (Werkstatt: {verfuegbar_werkstatt}, Lager: {verfuegbar_lager})"
+            )
+        
+        # Bestand reduzieren (erst Werkstatt, dann Lager)
+        menge_abzug = position.menge
+        
+        if verfuegbar_werkstatt >= menge_abzug:
+            # Alles aus Werkstatt
+            artikel.bestand_werkstatt -= menge_abzug
+        else:
+            # Werkstatt leeren, Rest aus Lager
+            artikel.bestand_werkstatt = 0
+            rest = menge_abzug - verfuegbar_werkstatt
+            artikel.bestand_lager -= rest
+        
+        # bestand_gesamt wird automatisch berechnet (ist eine Property)
+    
     # Position erstellen
     pos_gesamtpreis = Decimal(str(position.menge)) * position.einzelpreis
     
@@ -282,9 +319,10 @@ def add_position(
     db_reparatur.endbetrag = (db_reparatur.endbetrag or Decimal("0")) + pos_gesamtpreis
     
     db.commit()
-    db.refresh(db_reparatur)
+    db.refresh(db_position)
     
-    return jsonable_encoder(db_reparatur)
+    # Gib die erstellte Position zurück
+    return jsonable_encoder(db_position)
 
 
 @router.put("/{reparatur_id}/positionen/{position_id}")
@@ -303,8 +341,41 @@ def update_position(
     if not db_position:
         raise HTTPException(status_code=404, detail="Position nicht gefunden")
     
-    # Alten Gesamtpreis merken
+    # Alten Gesamtpreis & Menge merken
     alter_gesamtpreis = db_position.gesamtpreis
+    alte_menge = db_position.menge
+    
+    # Bei Ersatzteil mit Artikel: Bestand anpassen wenn Menge sich ändert
+    if db_position.typ == 'teil' and db_position.artikel_id and 'menge' in position_update.dict(exclude_unset=True):
+        neue_menge = position_update.menge
+        differenz = neue_menge - alte_menge
+        
+        if differenz != 0:
+            artikel = db.query(Artikel).filter(Artikel.id == db_position.artikel_id).first()
+            
+            if artikel:
+                if differenz > 0:
+                    # Mehr benötigt: Bestand reduzieren
+                    verfuegbar = (artikel.bestand_werkstatt or 0) + (artikel.bestand_lager or 0)
+                    
+                    if verfuegbar < differenz:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Nicht genügend Bestand! Benötigt: {differenz}, Verfügbar: {verfuegbar}"
+                        )
+                    
+                    # Bestand reduzieren
+                    if artikel.bestand_werkstatt >= differenz:
+                        artikel.bestand_werkstatt -= differenz
+                    else:
+                        rest = differenz - (artikel.bestand_werkstatt or 0)
+                        artikel.bestand_werkstatt = 0
+                        artikel.bestand_lager -= rest
+                else:
+                    # Weniger benötigt: Bestand erhöhen
+                    artikel.bestand_werkstatt = (artikel.bestand_werkstatt or 0) + abs(differenz)
+                
+                # bestand_gesamt wird automatisch berechnet
     
     # Update
     update_data = position_update.dict(exclude_unset=True)
@@ -338,6 +409,15 @@ def delete_position(
     
     if not db_position:
         raise HTTPException(status_code=404, detail="Position nicht gefunden")
+    
+    # Wenn Ersatzteil mit Artikel: Bestand zurückgeben
+    if db_position.typ == 'teil' and db_position.artikel_id:
+        artikel = db.query(Artikel).filter(Artikel.id == db_position.artikel_id).first()
+        
+        if artikel:
+            # Bestand zur Werkstatt zurückgeben
+            artikel.bestand_werkstatt = (artikel.bestand_werkstatt or 0) + db_position.menge
+            # bestand_gesamt wird automatisch berechnet
     
     # Endbetrag anpassen
     db_reparatur = db_position.reparatur
