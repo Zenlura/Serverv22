@@ -20,7 +20,7 @@ export default function ReparaturenListe() {
   const loadReparaturen = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/api/reparaturen/')
+      const response = await fetch('/api/reparaturen/')
       if (response.ok) {
         const data = await response.json()
         console.log('Geladene Reparaturen:', data)
@@ -47,7 +47,7 @@ export default function ReparaturenListe() {
     if (!confirm('Reparatur wirklich löschen?')) return
 
     try {
-      const response = await fetch(`http://localhost:8000/api/reparaturen/${id}`, {
+      const response = await fetch(`/api/reparaturen/${id}`, {
         method: 'DELETE'
       })
       if (response.ok) {
@@ -61,7 +61,7 @@ export default function ReparaturenListe() {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/reparaturen/${id}/status`, {
+      const response = await fetch(`/api/reparaturen/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
