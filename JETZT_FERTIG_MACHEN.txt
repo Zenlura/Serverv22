@@ -1,0 +1,92 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║         ✅ DASHBOARD IST BEREITS GEFIXT! ✅                  ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+Die dashboard.py wurde bereits ersetzt!
+Backup liegt in: app/routers/dashboard.py.backup
+
+
+═══════════════════════════════════════════════════════════════
+  NUR NOCH 2 DINGE ZU TUN:
+═══════════════════════════════════════════════════════════════
+
+1️⃣  DATENBANK-TABELLE ERSTELLEN
+═══════════════════════════════════════════════════════════════
+
+Option A: Mit pgAdmin (GUI - einfach!)
+---------------------------------------
+1. Öffne pgAdmin
+2. Verbinde zu localhost
+3. Öffne Datenbank "radstation" (oder erstelle sie)
+4. Rechtsklick auf "radstation" → Query Tool
+5. Öffne die Datei: migration_vermietungen.sql
+6. Klick auf den ▶️ Play-Button
+7. Fertig!
+
+
+Option B: Mit Kommandozeile (falls du das Passwort kennst)
+-----------------------------------------------------------
+Öffne CMD und tippe:
+
+cd "C:\Program Files\PostgreSQL\18\bin"
+psql.exe -U postgres
+
+Dann im psql:
+CREATE DATABASE radstation;
+\c radstation
+\i C:\Pfad\zu\deinem\Serverv22-dashboard\migration_vermietungen.sql
+\q
+
+
+Option C: Passwort vergessen? (komplizierter)
+----------------------------------------------
+Siehe POSTGRES_ANLEITUNG.md für Passwort-Reset
+
+
+2️⃣  SERVER NEU STARTEN
+═══════════════════════════════════════════════════════════════
+
+1. STOP.bat ausführen
+2. Warte 5 Sekunden
+3. START.bat ausführen
+4. Browser öffnen: http://localhost:5173
+5. Ggf. Browser-Cache leeren (Strg + Shift + Delete)
+
+
+═══════════════════════════════════════════════════════════════
+  DAS WAR'S! 🎉
+═══════════════════════════════════════════════════════════════
+
+Was wurde gefixt:
+✅ Dashboard-Router hat jetzt Fehlerbehandlung
+✅ CORS-Fehler werden vermieden
+✅ Funktioniert auch wenn Vermietungs-Tabelle fehlt
+
+Wenn du die Vermietungs-Tabelle anlegst (Schritt 1), 
+werden auch die Vermietungs-Statistiken angezeigt!
+
+
+═══════════════════════════════════════════════════════════════
+  PROBLEM: Datenbank-Passwort vergessen?
+═══════════════════════════════════════════════════════════════
+
+Schnellster Weg mit pgAdmin:
+1. Öffne pgAdmin
+2. Dort kannst du dich meist direkt verbinden
+3. Wenn es fragt "Server-Passwort speichern?" → Ja
+4. Dann kannst du die SQL ausführen ohne CMD
+
+Oder: Nutze die gespeicherten Credentials in pgAdmin!
+
+
+═══════════════════════════════════════════════════════════════
+
+Version: DIREKT GEFIXT
+Datum: 2026-02-02
+Status: Dashboard-Code ist aktualisiert ✅
+
+Jetzt nur noch Datenbank-Tabelle anlegen und Server neu starten!
+
+═══════════════════════════════════════════════════════════════
